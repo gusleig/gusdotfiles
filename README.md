@@ -16,7 +16,7 @@ This repository contains my personal dotfiles and setup scripts for a new macOS/
 1. Clone this repository into your home directory:
 
 ```bash
-git clone https://github.com/gusleig/dotfiles.git ~/.dotfiles
+git clone https://github.com/gusleig/gusdotfiles.git ~/.dotfiles
 ```
 
 2. Run the installation script:
