@@ -1,0 +1,6 @@
+cat > .gitignore << 'EOF'
+.DS_Store
+*.backup
+*.swp
+*~
+EOF
