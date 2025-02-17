@@ -80,6 +80,17 @@ To add a new configuration file:
 - Modify any `.symlink` files in the `dotfiles/` directory to customize your configurations
 - Changes will be tracked by git and can be version controlled
 
+## Reloading Configurations
+After modifying configuration files, restart the respective service:
+
+```bash
+# For yabai
+yabai --restart-service
+
+# For skhd
+skhd --restart-service
+```
+
 ## Troubleshooting
 
 ### Symlink Issues
@@ -90,6 +101,25 @@ If symlinks aren't created correctly:
 # Manually create symlinks
 ln -sf ~/.dotfiles/dotfiles/skhdrc.symlink ~/.skhdrc
 ln -sf ~/.dotfiles/dotfiles/yabairc.symlink ~/.yabairc
+```
+
+If hotkeys aren't working:
+
+- Ensure skhd service is running: skhd --check-service
+- Check permissions in System Preferences
+- View skhd logs:
+```bash
+tail -f ~/.skhd.log
+tail -f ~/.skhd.err.log
+```
+
+For yabai issues:
+
+- Check if service is running: yabai --check-service
+- View yabai logs:
+```bash
+tail -f ~/.yabai.log
+tail -f ~/.yabai.err.log
 ```
 
 ### Font Issues

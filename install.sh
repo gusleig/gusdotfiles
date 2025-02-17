@@ -43,13 +43,14 @@ manage_services() {
         fi
         
         # Stop services if they're running
-        brew services stop yabai 2>/dev/null
-        brew services stop skhd 2>/dev/null
+        echo "Stopping services if running..."
+        yabai --stop-service 2>/dev/null
+        skhd --stop-service 2>/dev/null
         
         # Start services
         echo "Starting yabai and skhd services..."
-        brew services start yabai
-        brew services start skhd
+        yabai --start-service
+        skhd --start-service
         
         echo "Services started. Note: you might need to allow accessibility permissions"
         echo "System Preferences -> Security & Privacy -> Privacy -> Accessibility"
