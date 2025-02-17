@@ -26,6 +26,38 @@ create_symlinks() {
     done
 }
 
+# Function to manage services
+manage_services() {
+    if command_exists brew; then
+        echo "Setting up yabai and skhd services..."
+        
+        # Install yabai and skhd if not already installed
+        if ! command_exists yabai; then
+            echo "Installing yabai..."
+            brew install koekeishiya/formulae/yabai
+        fi
+        
+        if ! command_exists skhd; then
+            echo "Installing skhd..."
+            brew install koekeishiya/formulae/skhd
+        fi
+        
+        # Stop services if they're running
+        brew services stop yabai 2>/dev/null
+        brew services stop skhd 2>/dev/null
+        
+        # Start services
+        echo "Starting yabai and skhd services..."
+        brew services start yabai
+        brew services start skhd
+        
+        echo "Services started. Note: you might need to allow accessibility permissions"
+        echo "System Preferences -> Security & Privacy -> Privacy -> Accessibility"
+    else
+        echo "Homebrew not found. Please install yabai and skhd manually."
+    fi
+}
+
 package_to_install="neovim
     tmux
     tree
@@ -111,6 +143,12 @@ if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlightin
 else
     echo "zsh-syntax-highlighting is already installed"
 fi
+
+# Create symlinks for dotfiles
+create_symlinks
+
+# Start services after symlinks are created
+manage_services
 
 # Backup existing .zshrc if it exists
 if [ -f "$HOME/.zshrc" ]; then
