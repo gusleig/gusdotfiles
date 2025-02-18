@@ -15,7 +15,10 @@
 # Unload the macOS WindowManager process
 launchctl unload -F /System/Library/LaunchAgents/com.apple.WindowManager.plist > /dev/null 2>&1 &
 
+yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
+
 sudo yabai --load-sa
+
 yabai -m signal --add event=dock_did_restart action="sudo yabai --load-sa"
 yabai -m signal --add event=window_focused action="sketchybar --trigger window_focus"
 yabai -m signal --add event=display_added action="sleep 2 && $HOME/.dotfiles/yabai/create_spaces.sh"
@@ -23,7 +26,7 @@ yabai -m signal --add event=display_removed action="sleep 1 && $HOME/.dotfiles/y
 yabai -m signal --add event=window_created action="sketchybar --trigger windows_on_spaces"
 yabai -m signal --add event=window_destroyed action="sketchybar --trigger windows_on_spaces"
 
-$HOME/.dotfiles/yabai/create_spaces.sh
+# $HOME/.dotfiles/yabai/create_spaces.sh
 
 # Move space 9 to the second display when it's connected
 yabai -m space 6 --display 2
@@ -79,14 +82,18 @@ yabai -m rule --add label="About This Mac" app="System Information" title="About
 
 yabai -m config layout bsp
 
+# when you drop a window on another window, stack the two.
+# (Default: swap)
+# yabai -m config mouse_drop_action stack
 
 # move some apps automatically to specific spaces
 yabai -m rule --add app="Brave Browser" space=^1
+yabai -m rule --add app="Calendar" space=^1
 yabai -m rule --add app="iTerm" space=2
-yabai -m rule --add app="Windsurf" space=3
-yabai -m rule --add app="Notion" space=4
-yabai -m rule --add app="Obsidian" space=4
-yabai -m rule --add app="Slack" space=^5
+yabai -m rule --add app="Windsurf" space=2
+yabai -m rule --add app="Notion" space=3
+yabai -m rule --add app="Obsidian" space=3
+yabai -m rule --add app="Slack" space=^1
 # yabai -m rule --add app="Discord" space=^5
 # yabai -m rule --add app="OBS Studio" space=^6
 # yabai -m rule --add app="Adobe Photoshop 2024" space=^6

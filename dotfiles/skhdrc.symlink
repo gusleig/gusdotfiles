@@ -22,6 +22,7 @@ alt - l: yabai -m window --focus east
 # shift + alt - left   : yabai -m window --grid 1:2:0:0:1:1
 
 # create desktop, move window and follow focus - uses jq for parsing json (brew install jq)
+
 shift + alt - n: yabai -m space --create && \
   index="$(yabai -m query --spaces --display | jq 'map(select(."is-native-fullscreen" == false))[-1].index')" && \
   yabai -m window --space "${index}" && \
