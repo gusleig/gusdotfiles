@@ -73,8 +73,8 @@ yabai -m rule --add label="Finder" app="^Finder$" title="(Co(py|nnect)|Move|Info
 yabai -m rule --add label="About This Mac" app="System Information" title="About This Mac" manage=off
 
 # Premiere need this in order to be managed properly 
-yabai -m rule --add app="^Adobe Premiere Pro 2024$" role="AXLayoutArea" subrole="AXFloatingWindow" manage=on
-yabai -m rule --add app="^Adobe Premiere Pro 2024$" role="AXLayoutArea" subrole="AXDialog" manage=on
+# yabai -m rule --add app="^Adobe Premiere Pro 2024$" role="AXLayoutArea" subrole="AXFloatingWindow" manage=on
+# yabai -m rule --add app="^Adobe Premiere Pro 2024$" role="AXLayoutArea" subrole="AXDialog" manage=on
 #yabai -m rule --add app="^Adobe Premiere Pro 2024$" manage=off
 
 yabai -m config layout bsp

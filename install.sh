@@ -203,6 +203,9 @@ if command_exists fc-cache; then
     fc-cache -f -v
 fi
 
+mkdir -p $HOME/.config/borders
+ln -s .dotfiles/borders/bordersrc.symlink $HOME/.config/borders/bordersrc
+
 echo "Installation complete!"
 echo "Please:"
 echo "1. Restart your terminal"

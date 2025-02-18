@@ -25,7 +25,11 @@ git clone https://github.com/gusleig/gusdotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 chmod +x install.sh
 ./install.sh
+./install_sketchybar.sh
 ```
+For Sketchybar, disable the menu bar in Control Center settings:
+
+![alt text](image.png)
 
 ## What's Included
 
