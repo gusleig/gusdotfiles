@@ -59,7 +59,7 @@ manage_services() {
     fi
 }
 
-package_to_install="neovim
+package_to_install="
     tmux
     tree
     wget
