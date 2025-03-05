@@ -68,6 +68,9 @@ package_to_install="
     git
     eza
     zoxide
+    iterm2
+    zsh-autosuggestions
+    zsh-syntax-highlighting
 "
 
 # Function to install packages based on the package manager
@@ -103,6 +106,61 @@ install_packages() {
     fi
 }
 
+setup_powerlevel10k() {
+    # First check if Oh My Zsh is installed
+    if [ -d "$HOME/.oh-my-zsh" ]; then
+        echo "Oh My Zsh detected, setting up Powerlevel10k as Oh My Zsh theme..."
+        
+        # Install Powerlevel10k theme for Oh My Zsh if not already installed
+        if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
+            echo "Installing Powerlevel10k theme..."
+            git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+        else
+            echo "Powerlevel10k theme is already installed for Oh My Zsh"
+        fi
+        
+        # Check if ZSH_THEME is already set to powerlevel10k
+        if grep -q 'ZSH_THEME="powerlevel10k/powerlevel10k"' "$HOME/.zshrc"; then
+            echo "Powerlevel10k theme is already configured in .zshrc"
+        else
+            # Backup existing .zshrc if it exists
+            if [ -f "$HOME/.zshrc" ]; then
+                echo "Backing up existing .zshrc..."
+                cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
+            fi
+            
+            # Update .zshrc configuration
+            echo "Updating .zshrc to use Powerlevel10k theme..."
+            sed -i 's/ZSH_THEME=".*"/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.zshrc"
+        fi
+    else
+        echo "Oh My Zsh not detected, setting up standalone Powerlevel10k..."
+        
+        # Install standalone Powerlevel10k if not already installed
+        if [ ! -d "$HOME/powerlevel10k" ]; then
+            echo "Installing standalone Powerlevel10k..."
+            git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$HOME/powerlevel10k"
+        else
+            echo "Standalone Powerlevel10k is already installed"
+        fi
+        
+        # Check if powerlevel10k is already sourced in .zshrc
+        if grep -q 'source ~/powerlevel10k/powerlevel10k.zsh-theme' "$HOME/.zshrc"; then
+            echo "Standalone Powerlevel10k is already configured in .zshrc"
+        else
+            # Backup existing .zshrc if it exists
+            if [ -f "$HOME/.zshrc" ]; then
+                echo "Backing up existing .zshrc..."
+                cp "$HOME/.zshrc" "$HOME/.zshrc.backup.$(date +%Y%m%d%H%M%S)"
+            fi
+            
+            # Add source line to .zshrc
+            echo "Adding Powerlevel10k source line to .zshrc..."
+            echo "source ~/powerlevel10k/powerlevel10k.zsh-theme" >> "$HOME/.zshrc"
+        fi
+    fi
+}
+
 # Ensure script is run from the correct directory
 if [ ! -d "$HOME/.dotfiles" ]; then
     echo "Error: ~/.dotfiles directory not found!"
@@ -121,13 +179,14 @@ else
     echo "Oh My Zsh is already installed"
 fi
 
-# Install Powerlevel10k theme
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
-    echo "Installing Powerlevel10k theme..."
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-else
-    echo "Powerlevel10k theme is already installed"
+# Backup existing .zshrc if it exists
+if [ -f "$HOME/.zshrc" ]; then
+    echo "Backing up existing .zshrc..."
+    cp "$HOME/.zshrc" "$HOME/.zshrc.backup"
 fi
+
+echo "Installing powerlevel10k..."
+setup_powerlevel10k
 
 # Install zsh-autosuggestions
 if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
@@ -150,16 +209,6 @@ create_symlinks
 
 # Start services after symlinks are created
 manage_services
-
-# Backup existing .zshrc if it exists
-if [ -f "$HOME/.zshrc" ]; then
-    echo "Backing up existing .zshrc..."
-    cp "$HOME/.zshrc" "$HOME/.zshrc.backup"
-fi
-
-# Update .zshrc configuration
-echo "Updating .zshrc configuration..."
-sed -i 's/ZSH_THEME=".*"/ZSH_THEME="powerlevel10k\/powerlevel10k"/' "$HOME/.zshrc"
 
 # Update plugins in .zshrc
 sed -i 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$HOME/.zshrc"
@@ -208,6 +257,6 @@ ln -s .dotfiles/borders/bordersrc.symlink $HOME/.config/borders/bordersrc
 
 echo "Installation complete!"
 echo "Please:"
-echo "1. Restart your terminal"
-echo "2. Change your terminal font to MesloLGS NF"
-echo "3. Run 'p10k configure' to set up Powerlevel10k"©
+echo "1. Use iTerm2 as your default terminal"
+echo "2. Change iTerm2 font to MesloLGS NF"
+echo "3. Run 'p10k configure' to set up Powerlevel10k"

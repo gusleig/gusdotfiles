@@ -84,6 +84,34 @@ To add a new configuration file:
 - Modify any `.symlink` files in the `dotfiles/` directory to customize your configurations
 - Changes will be tracked by git and can be version controlled
 
+Disabling System Integrity Protection:
+
+Yabai needs to run without System Integrity Protection to work correctly.
+
+For Macs with silicon chip:
+
+In system restore:
+
+```bash
+csrutil enable --without fs --without debug --without nvram
+```
+
+After a normal reboot:
+
+```bash
+sudo nvram boot-args=-arm64e_preview_abi
+```
+
+if the last command doesn't work, try (in system restore):
+
+```bash
+csrutil disable
+```
+
+Refer to this official documentation:
+
+- [Disabling System Integrity Protection](https://github.com/koekeishiya/yabai/wiki/Disabling-System-Integrity-Protection)
+
 ## Reloading Configurations
 After modifying configuration files, restart the respective service:
 
@@ -125,6 +153,7 @@ For yabai issues:
 tail -f ~/.yabai.log
 tail -f ~/.yabai.err.log
 ```
+
 
 ### Font Issues
 

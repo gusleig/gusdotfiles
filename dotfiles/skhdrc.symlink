@@ -88,6 +88,10 @@ alt - e: yabai -m window --toggle split
 
 # toggle sticky(+float), topmost, picture-in-picture
 # alt - p : yabai -m window --toggle sticky --toggle topmost --toggle pip
+
+# toggle window float
+shift + alt - t : yabai -m window --toggle float --grid 4:4:1:1:2:2
+
 # App shortcuts
 alt - c: open -a 'Windsurf'
 alt - s: open -a 'Slack'
