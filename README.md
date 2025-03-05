@@ -10,6 +10,7 @@ This repository contains my personal dotfiles and setup scripts for a new macOS/
 - zoxide (smart cd command)
 - skhd (hotkey daemon)
 - yabai (window manager)
+- iterm2 (terminal)
 
 ## Installation
 
