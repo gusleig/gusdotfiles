@@ -242,7 +242,6 @@ FONT_URLS=(
     "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
 )
 
-
 for URL in "${FONT_URLS[@]}"; do
     curl -fL "$URL" -o "$HOME/.local/share/fonts/$(basename "$URL")"
 done
@@ -251,6 +250,11 @@ done
 if command_exists fc-cache; then
     fc-cache -f -v
 fi
+
+echo "================================================="
+echo "Installing Alt-tab"
+echo "================================================="
+brew install --cask alt-tab
 
 mkdir -p $HOME/.config/borders
 ln -s .dotfiles/borders/bordersrc.symlink $HOME/.config/borders/bordersrc
