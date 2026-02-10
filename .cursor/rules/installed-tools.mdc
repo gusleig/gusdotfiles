@@ -1,0 +1,29 @@
+---
+description: CLI tools installed by this dotfiles setup (use these when suggesting commands)
+alwaysApply: true
+---
+
+# Installed tools (dotfiles stack)
+
+When suggesting shell commands, prefer these tools—they are installed on this machine.
+
+| Tool | Use for | Example |
+|------|---------|--------|
+| **eza** | Listing files (ls replacement) | `ls`, `ls -la`, `ls -T` |
+| **zoxide** | Smart cd by name | `z proj`, `z ~/code/foo` |
+| **bat** | View files with syntax highlight | `bat file.sh`, `bat -l json file.json` |
+| **rg** / ripgrep | Search in files | `rg "pattern"`, `rg -t py "import"` |
+| **fd** | Find files | `fd "*.py"`, `fd name` |
+| **watch** | Run command repeatedly | `watch -n 2 'git status'` |
+| **fzf** | Fuzzy find (Ctrl+R in shell) | History search, `**` + Tab for files |
+| **lazygit** | Git TUI | `lazygit` |
+| **delta** | Git diff pager (auto) | Used by git diff / lazygit |
+| **gh** | GitHub CLI | `gh pr list`, `gh repo clone org/repo` |
+| **gwt** | Git worktree + uv + lazygit | `gwt my-feature`, `gwt hotfix main` |
+| **mole** | SSH tunnels | Port forwarding / reverse tunnels |
+| **tmux** | Sessions/panes | `tmux new -s dev`, `tmux attach` |
+| **tree** | Directory tree | `tree -L 2` |
+| **aws** | AWS/S3 (if installed) | `aws s3 ls`, `aws s3 cp` |
+
+- Shell: **zsh** with Oh My Zsh, Powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting.
+- Terminal: **Ghostty** or **iTerm2**. macOS may have **yabai**, **skhd**, **sketchybar**.

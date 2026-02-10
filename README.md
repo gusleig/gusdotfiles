@@ -1,16 +1,6 @@
 # My Dotfiles
 
-This repository contains my personal dotfiles and setup scripts for a new macOS/Linux system. It includes configurations for:
-
-- Zsh with Oh My Zsh
-- Powerlevel10k theme
-- zsh-autosuggestions
-- zsh-syntax-highlighting
-- eza (modern ls replacement)
-- zoxide (smart cd command)
-- skhd (hotkey daemon)
-- yabai (window manager)
-- iterm2 (terminal)
+Personal dotfiles and setup scripts for macOS/Linux. Includes Zsh (Oh My Zsh + Powerlevel10k), a terminal-first tool stack, optional yabai/skhd/sketchybar, and a custom git worktree helper.
 
 ## Installation
 
@@ -26,150 +16,215 @@ git clone https://github.com/gusleig/gusdotfiles.git ~/.dotfiles
 cd ~/.dotfiles
 chmod +x install.sh
 ./install.sh
-./install_sketchybar.sh
 ```
-For Sketchybar, disable the menu bar in Control Center settings:
+
+The script will prompt you for:
+
+- **Terminal:** iTerm2 or Ghostty
+- **Sketchybar** (status bar): optional
+- **AWS CLI** (includes S3): optional
+- **Update now:** optionally update Homebrew, Oh My Zsh, and plugins right after install
+
+To only update installed software later:
+
+```bash
+./install.sh update
+```
+
+For Sketchybar (if you chose to install it), disable the menu bar in **System Settings → Control Center**.
+
+### Install context for AI (Cursor and Claude Code)
+
+The install script makes the list of installed CLI tools visible to AI so it can suggest valid commands (eza, bat, rg, fd, lazygit, gwt, etc.).
+
+- **Cursor**  
+  Symlinks `.cursor/rules/` to `~/.cursor/rules/`. The rule **installed-tools.mdc** applies when you work in this repo or in a workspace that includes `~/.cursor/rules/`.  
+  For other projects: copy `~/.dotfiles/.cursor/rules/installed-tools.mdc` into that project’s `.cursor/rules/`, or add it via **Cursor → Settings → Rules → User Rules**.
+
+- **Claude Code only (no Cursor)**  
+  Claude Code loads context from **~/.claude/CLAUDE.md**. The install script:
+  - Symlinks `~/.claude/dotfiles-tools.md` → this repo’s `claude/dotfiles-tools.md`.
+  - If `~/.claude/CLAUDE.md` does not exist, creates it with the tools list.
+  - If it already exists, appends the tools section once (skips if already present).
+
+  So if you use Claude Code but not Cursor, the same tools list is still loaded from `~/.claude/CLAUDE.md`.
 
 ![alt text](image.png)
 
-## What's Included
-
-### Directory Structure
+## Directory Structure
 
 ```
 ~/.dotfiles/
 ├── install.sh              # Main installation script
-├── README.md              # This file
-└── dotfiles/
-    ├── skhdrc.symlink     # skhd configuration
-    ├── yabairc.symlink    # yabai configuration
-    └── ... other config files
+├── install_sketchybar.sh   # Sketchybar setup (optional, run via install.sh prompt)
+├── README.md
+├── .cursor/
+│   └── rules/
+│       └── installed-tools.mdc   # Cursor: rule listing available CLI tools
+├── claude/
+│   └── dotfiles-tools.md        # Claude Code: same tools list for ~/.claude/CLAUDE.md
+├── dotfiles/
+│   ├── skhdrc.symlink      # skhd hotkey config
+│   └── yabairc.symlink     # yabai window manager config
+├── borders/
+│   └── bordersrc.symlink   # yabai borders config
+└── sketchybar/            # sketchybar config (if used)
 ```
 
-### Configurations
+## Tools
 
-The script will:
+Brief intro and examples for each tool installed by the script.
 
-1. Install required packages (zsh, git, curl, etc.)
-2. Set up Oh My Zsh with Powerlevel10k theme
-3. Install and configure plugins:
-   - zsh-autosuggestions
-   - zsh-syntax-highlighting
-4. Install and configure utilities:
-   - eza (modern ls replacement)
-   - zoxide (smart cd navigation)
-5. Symlink all configuration files from `dotfiles/*.symlink` to your home directory
-   - For example: `~/.dotfiles/dotfiles/skhdrc.symlink` → `~/.skhdrc`
+### Shell & navigation
 
-### Post-Installation
+- **eza** — Modern `ls` with icons and better defaults.  
+  `ls` is aliased to `eza --icons=always`.  
+  Examples: `ls`, `ls -la`, `ls -T` (tree).
 
-After running the installation script:
+- **zoxide** — Smarter `cd` using your history.  
+  Examples: `z proj` (jump to a path containing “proj”), `z ~/code/foo`.
 
-1. Restart your terminal
-2. Set your terminal font to MesloLGS NF
-3. Run `p10k configure` to set up Powerlevel10k
-4. Verify that all symlinks are correctly created:
-   ```bash
-   ls -la ~ | grep -e .skhd -e .yabai
-   ```
+- **fzf** — Fuzzy finder.  
+  **Ctrl+R** in the shell: fuzzy search command history.  
+  Tab completion: type `**` and Tab to fuzzy-find files.
 
-## Adding New Dotfiles
+### Viewing & searching
 
-To add a new configuration file:
+- **bat** — Syntax-highlighted `cat`.  
+  Examples: `bat install.sh`, `bat -l json package.json`.
 
-1. Add your configuration file to the `dotfiles/` directory with the `.symlink` extension
-2. The installation script will automatically create the appropriate symlink in your home directory
+- **ripgrep (rg)** — Fast search in files.  
+  Examples: `rg "function_name"`, `rg -t py "import os"`, `rg --no-ignore "TODO"`.
+
+- **fd** — Simple, fast `find`.  
+  Examples: `fd "*.py"`, `fd -e json`, `fd config`.
+
+- **watch** — Run a command repeatedly.  
+  Examples: `watch -n 2 'git status'`, `watch -n 1 'ls -la'`.
+
+### Git
+
+- **lazygit** — TUI for git (commit, branches, stash, diff, logs).  
+  Example: run `lazygit` in any repo.
+
+- **delta** — Better git diffs (syntax highlighting, side-by-side).  
+  Used automatically for `git diff` and inside LazyGit.
+
+- **gh** — GitHub CLI.  
+  Examples: `gh pr list`, `gh pr checkout 123`, `gh repo clone owner/repo`, `gh issue create`.
+
+- **gwt** — Custom worktree helper: create a worktree, set up uv + dbt, open LazyGit.  
+  Usage: `gwt <name> [branch]`  
+  Examples:  
+  `gwt my-feature` → creates `../wt/my-feature` on branch `feature/my-feature`.  
+  `gwt hotfix main` → creates `../wt/hotfix` on branch `main`.
+
+### Other
+
+- **mole** — Reverse SSH tunnels.  
+  Example: expose a local port or reach a remote host via tunnel.
+
+- **tmux** — Terminal multiplexer (sessions, panes, windows).  
+  Examples: `tmux new -s dev`, `tmux attach -t dev`.
+
+- **tree** — Directory tree.  
+  Example: `tree -L 2`.
+
+- **AWS CLI** (optional) — If you chose to install it: S3, Lambda, and other AWS services from the terminal.  
+  Examples: `aws s3 ls`, `aws s3 cp file.txt s3://bucket/`, `aws configure`.
+
+### macOS-specific (when using Homebrew)
+
+- **yabai** — Tiling window manager.
+- **skhd** — Hotkey daemon (binds keys to yabai and other actions).
+- **Sketchybar** (optional) — Status bar.
+- **Alt-tab** — Cask for window switching.
+- **Raycast** — Launcher and productivity app (Spotlight alternative). Open from terminal: `open -a Raycast`, or use its global shortcut after first launch.
+- **iTerm2 or Ghostty** — Your chosen terminal.
+
+## What the install script does
+
+1. Installs packages (via Homebrew on macOS, or apt/yum on Linux where supported).
+2. Installs Oh My Zsh and Powerlevel10k.
+3. Installs plugins: zsh-autosuggestions, zsh-syntax-highlighting.
+4. Creates symlinks from `dotfiles/*.symlink` to `~/.filename` (e.g. `~/.skhdrc`, `~/.yabairc`).
+5. Configures fzf keybindings and delta as the git pager.
+6. Adds to `.zshrc`: eza alias, zoxide init, and the `gwt` function.
+7. On macOS: starts yabai/skhd if present, installs fonts, Alt-tab, and Raycast; optionally Sketchybar and AWS CLI.
+
+## Post-installation
+
+1. Restart your terminal.
+2. Set the terminal font to **MesloLGS NF**.
+3. Run `p10k configure` to set up Powerlevel10k.
+4. Check symlinks: `ls -la ~ | grep -E '\.(skhd|yabai)'`
+
+## Adding new dotfiles
+
+1. Put the file in `dotfiles/` with a `.symlink` extension (e.g. `dotfiles/myrc.symlink`).
+2. Run `./install.sh` again; it will symlink to `~/.myrc`.
 
 ## Customization
 
-- Modify any `.symlink` files in the `dotfiles/` directory to customize your configurations
-- Changes will be tracked by git and can be version controlled
+- Edit any `*.symlink` file under `dotfiles/` or `borders/`; changes are in git.
+- Adjust the `gwt` function or other blocks in the section the install script appends to your `.zshrc`.
 
-Disabling System Integrity Protection:
+## Reloading configurations
 
-Yabai needs to run without System Integrity Protection to work correctly.
-
-For Macs with silicon chip:
-
-In system restore:
+After editing configs, restart the service:
 
 ```bash
-csrutil enable --without fs --without debug --without nvram
-```
-
-After a normal reboot:
-
-```bash
-sudo nvram boot-args=-arm64e_preview_abi
-```
-
-if the last command doesn't work, try (in system restore):
-
-```bash
-csrutil disable
-```
-
-Refer to this official documentation:
-
-- [Disabling System Integrity Protection](https://github.com/koekeishiya/yabai/wiki/Disabling-System-Integrity-Protection)
-
-## Reloading Configurations
-After modifying configuration files, restart the respective service:
-
-```bash
-# For yabai
+# yabai
 yabai --restart-service
 
-# For skhd
+# skhd
 skhd --restart-service
 ```
 
-## Troubleshooting
-
-### Symlink Issues
-
-If symlinks aren't created correctly:
-
-```bash
-# Manually create symlinks
-ln -sf ~/.dotfiles/dotfiles/skhdrc.symlink ~/.skhdrc
-ln -sf ~/.dotfiles/dotfiles/yabairc.symlink ~/.yabairc
-```
-
-If hotkeys aren't working:
-
-- Ensure skhd service is running: skhd --check-service
-- Check permissions in System Preferences
-- View skhd logs:
-```bash
-tail -f ~/.skhd.log
-tail -f ~/.skhd.err.log
-```
-
-For yabai issues:
-
-- Check if service is running: yabai --check-service
-- View yabai logs:
-```bash
-tail -f ~/.yabai.log
-tail -f ~/.yabai.err.log
-```
-
-
-### Font Issues
-
-If the Powerlevel10k icons don't display correctly:
-
-1. Verify that MesloLGS NF is installed
-2. Set your terminal font to MesloLGS NF
-3. Restart your terminal
-
 ## Updating
 
-To update your dotfiles:
+Update the repo and re-run the installer to refresh symlinks:
 
 ```bash
 cd ~/.dotfiles
 git pull
-./install.sh  # Will update symlinks and configurations
+./install.sh
 ```
+
+Update all installed tools (Homebrew, Oh My Zsh, Powerlevel10k, plugins):
+
+```bash
+./install.sh update
+```
+
+## Troubleshooting
+
+### Symlinks
+
+If symlinks are wrong, fix manually:
+
+```bash
+ln -sf ~/.dotfiles/dotfiles/skhdrc.symlink ~/.skhdrc
+ln -sf ~/.dotfiles/dotfiles/yabairc.symlink ~/.yabairc
+ln -sf ~/.dotfiles/borders/bordersrc.symlink ~/.config/borders/bordersrc
+```
+
+### skhd
+
+- Service: `skhd --check-service`
+- Logs: `tail -f ~/.skhd.log` and `tail -f ~/.skhd.err.log`
+- Grant **Accessibility** in **System Settings → Privacy & Security → Accessibility**
+
+### yabai
+
+- Service: `yabai --check-service`
+- Logs: `tail -f ~/.yabai.log` and `tail -f ~/.yabai.err.log`
+- On Apple Silicon, yabai may require [disabling SIP](https://github.com/koekeishiya/yabai/wiki/Disabling-System-Integrity-Protection) (e.g. `csrutil enable --without fs --without debug --without nvram` in Recovery, then `sudo nvram boot-args=-arm64e_preview_abi` after reboot).
+
+### Fonts / Powerlevel10k
+
+If Powerlevel10k looks wrong:
+
+1. Confirm **MesloLGS NF** is installed (install script installs it under `~/.local/share/fonts`).
+2. Set your terminal font to MesloLGS NF.
+3. Restart the terminal.
