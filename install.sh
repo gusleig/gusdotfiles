@@ -305,7 +305,7 @@ manage_services
 sed_in_place 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$HOME/.zshrc"
 
 # Add eza alias, zoxide, and custom functions
-echo "Adding eza alias, zoxide, and gwt worktree helper..."
+echo "Adding eza alias, zoxide, and gwtree worktree helper..."
 cat << 'EOF' >> "$HOME/.zshrc"
 
 # ---- Eza (better ls) ----
@@ -314,12 +314,11 @@ alias ls="eza --icons=always"
 # ---- Zoxide (better cd) ----
 eval "$(zoxide init zsh)"
 
-# ---- Git worktree helper (overrides git plugin gwt alias) ----
-unalias gwt 2>/dev/null
-gwt() {
+# ---- Git worktree helper (gwtree = git worktree; avoids conflict with git plugin's gwt) ----
+gwtree() {
   local name="$1"
   local branch="${2:-feature/$name}"
-  [[ -z "$name" ]] && { echo "usage: gwt <name> [branch]"; return 1; }
+  [[ -z "$name" ]] && { echo "usage: gwtree <name> [branch]"; return 1; }
 
   mkdir -p ../wt
   git worktree add "../wt/$name" -b "$branch" || return 1
@@ -466,9 +465,9 @@ echo "  Ctrl+R     - fzf (fuzzy search shell history)"
 echo "  lazygit     - TUI for git (commit, branches, diff; uses delta for diffs)"
 echo "  gh          - GitHub CLI (pr, issue, repo from terminal)"
 echo "  aws s3 ...  - AWS CLI / S3 (if installed)"
-echo "  gwt <name> [branch] - create a git worktree in ../wt/<name>, set up uv + dbt, open lazygit"
-echo "                         e.g. gwt my-feature    → branch feature/my-feature"
-echo "                              gwt hotfix main   → branch main"
+echo "  gwtree <name> [branch] - create a git worktree in ../wt/<name>, set up uv + dbt, open lazygit"
+echo "                          e.g. gwtree my-feature    → branch feature/my-feature"
+echo "                               gwtree hotfix main   → branch main"
 echo ""
 echo "Updates:"
 echo "  ./install.sh update   - update Homebrew, Oh My Zsh, plugins, Powerlevel10k"

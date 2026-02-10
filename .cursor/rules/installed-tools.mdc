@@ -19,7 +19,7 @@ When suggesting shell commands, prefer these tools—they are installed on this 
 | **lazygit** | Git TUI | `lazygit` |
 | **delta** | Git diff pager (auto) | Used by git diff / lazygit |
 | **gh** | GitHub CLI | `gh pr list`, `gh repo clone org/repo` |
-| **gwt** | Git worktree + uv + lazygit | `gwt my-feature`, `gwt hotfix main` |
+| **gwtree** | Git worktree + uv + lazygit | `gwtree my-feature`, `gwtree hotfix main` |
 | **mole** | SSH tunnels | Port forwarding / reverse tunnels |
 | **tmux** | Sessions/panes | `tmux new -s dev`, `tmux attach` |
 | **tree** | Directory tree | `tree -L 2` |

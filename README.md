@@ -35,7 +35,7 @@ For Sketchybar (if you chose to install it), disable the menu bar in **System Se
 
 ### Install context for AI (Cursor and Claude Code)
 
-The install script makes the list of installed CLI tools visible to AI so it can suggest valid commands (eza, bat, rg, fd, lazygit, gwt, etc.).
+The install script makes the list of installed CLI tools visible to AI so it can suggest valid commands (eza, bat, rg, fd, lazygit, gwtree, etc.).
 
 - **Cursor**  
   Symlinks `.cursor/rules/` to `~/.cursor/rules/`. The rule **installed-tools.mdc** applies when you work in this repo or in a workspace that includes `~/.cursor/rules/`.  
@@ -113,11 +113,11 @@ Brief intro and examples for each tool installed by the script.
 - **gh** — GitHub CLI.  
   Examples: `gh pr list`, `gh pr checkout 123`, `gh repo clone owner/repo`, `gh issue create`.
 
-- **gwt** — Custom worktree helper: create a worktree, set up uv + dbt, open LazyGit.  
-  Usage: `gwt <name> [branch]`  
+- **gwtree** — Custom worktree helper: create a worktree, set up uv + dbt, open LazyGit.  
+  Usage: `gwtree <name> [branch]`  
   Examples:  
-  `gwt my-feature` → creates `../wt/my-feature` on branch `feature/my-feature`.  
-  `gwt hotfix main` → creates `../wt/hotfix` on branch `main`.
+  `gwtree my-feature` → creates `../wt/my-feature` on branch `feature/my-feature`.  
+  `gwtree hotfix main` → creates `../wt/hotfix` on branch `main`.
 
 ### Other
 
@@ -149,7 +149,7 @@ Brief intro and examples for each tool installed by the script.
 3. Installs plugins: zsh-autosuggestions, zsh-syntax-highlighting.
 4. Creates symlinks from `dotfiles/*.symlink` to `~/.filename` (e.g. `~/.skhdrc`, `~/.yabairc`).
 5. Configures fzf keybindings and delta as the git pager.
-6. Adds to `.zshrc`: eza alias, zoxide init, and the `gwt` function.
+6. Adds to `.zshrc`: eza alias, zoxide init, and the `gwtree` function.
 7. On macOS: starts yabai/skhd if present, installs fonts, Alt-tab, and Raycast; optionally Sketchybar and AWS CLI.
 
 ## Post-installation
@@ -167,7 +167,7 @@ Brief intro and examples for each tool installed by the script.
 ## Customization
 
 - Edit any `*.symlink` file under `dotfiles/` or `borders/`; changes are in git.
-- Adjust the `gwt` function or other blocks in the section the install script appends to your `.zshrc`.
+- Adjust the `gwtree` function or other blocks in the section the install script appends to your `.zshrc`.
 
 ## Reloading configurations
 
