@@ -114,10 +114,11 @@ Brief intro and examples for each tool installed by the script.
   Examples: `gh pr list`, `gh pr checkout 123`, `gh repo clone owner/repo`, `gh issue create`.
 
 - **gwtree** — Custom worktree helper: create a worktree, set up uv + dbt, open LazyGit.  
-  Usage: `gwtree <name> [branch]`  
+  Usage: `gwtree <name> [branch]` or `gwtree <ticket> <description>`.  
   Examples:  
-  `gwtree my-feature` → creates `../wt/my-feature` on branch `feature/my-feature`.  
-  `gwtree hotfix main` → creates `../wt/hotfix` on branch `main`.
+  `gwtree my-feature` → `../wt/my-feature`, branch `feature/my-feature`.  
+  `gwtree sc-265685 migrate-user-activity-auth-state-most-recent` → `../wt/migrate-user-activity-auth-state-most-recent`, branch `feature/sc-265685/migrate-user-activity-auth-state-most-recent`.  
+  `gwtree hotfix main` → `../wt/hotfix`, branch `main`.
 
 ### Other
 

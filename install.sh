@@ -315,10 +315,25 @@ alias ls="eza --icons=always"
 eval "$(zoxide init zsh)"
 
 # ---- Git worktree helper (gwtree = git worktree; avoids conflict with git plugin's gwt) ----
+# Usage:
+#   gwtree <name>                    → ../wt/<name>, branch feature/<name>
+#   gwtree <ticket> <description>     → ../wt/<description>, branch feature/<ticket>/<description> (if 2nd arg has no /)
+#   gwtree <name> <branch>           → ../wt/<name>, branch <branch> (e.g. gwtree hotfix main)
 gwtree() {
   local name="$1"
-  local branch="${2:-feature/$name}"
-  [[ -z "$name" ]] && { echo "usage: gwtree <name> [branch]"; return 1; }
+  local second="${2:-}"
+  local branch
+  local wt_name
+
+  [[ -z "$name" ]] && { echo "usage: gwtree <name> [branch]\n       gwtree <ticket> <description>  # branch = feature/<ticket>/<description>"; return 1; }
+
+  if [[ -n "$second" && "$second" != */* && "$second" != "main" && "$second" != "master" ]]; then
+    wt_name="$second"
+    branch="feature/${name}/${second}"
+  else
+    wt_name="$name"
+    branch="${second:-feature/$name}"
+  fi
 
   # Ensure we're inside a git repo and get repo root
   local root
@@ -329,7 +344,7 @@ gwtree() {
 
   # Put worktrees next to the repo root (stable no matter where you run it)
   local wt_base="${root%/*}/wt"
-  local wt_path="${wt_base}/${name}"
+  local wt_path="${wt_base}/${wt_name}"
 
   mkdir -p "$wt_base" || return 1
 
@@ -344,13 +359,13 @@ gwtree() {
   export UV_PROJECT_ENVIRONMENT=".venv"
   uv venv --quiet || return 1
   uv sync || return 1
+  source .venv/bin/activate || return 1
 
-  # dbt: isolate artifacts per worktree
+  # dbt: isolate artifacts per worktree; run deps only if this is a dbt project
   export DBT_TARGET_PATH="target"
   export DBT_LOG_PATH="logs"
   mkdir -p "$DBT_LOG_PATH"
-
-  if command -v dbt >/dev/null 2>&1; then
+  if command -v dbt >/dev/null 2>&1 && { [ -d dbt ] || [ -f dbt_project.yml ]; }; then
     if ! dbt deps; then
       echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)"
     fi
@@ -487,9 +502,10 @@ echo "  Ctrl+R     - fzf (fuzzy search shell history)"
 echo "  lazygit     - TUI for git (commit, branches, diff; uses delta for diffs)"
 echo "  gh          - GitHub CLI (pr, issue, repo from terminal)"
 echo "  aws s3 ...  - AWS CLI / S3 (if installed)"
-echo "  gwtree <name> [branch] - create a git worktree in ../wt/<name>, set up uv + dbt, open lazygit"
-echo "                          e.g. gwtree my-feature    → branch feature/my-feature"
-echo "                               gwtree hotfix main   → branch main"
+echo "  gwtree <name> [branch] - create worktree in ../wt/, set up uv + dbt, open lazygit"
+echo "                          e.g. gwtree my-feature    → ../wt/my-feature, branch feature/my-feature"
+echo "                               gwtree sc-123 desc   → ../wt/desc, branch feature/sc-123/desc"
+echo "                               gwtree hotfix main   → ../wt/hotfix, branch main"
 echo ""
 echo "Updates:"
 echo "  ./install.sh update   - update Homebrew, Oh My Zsh, plugins, Powerlevel10k"
