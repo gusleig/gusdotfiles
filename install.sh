@@ -320,25 +320,47 @@ gwtree() {
   local branch="${2:-feature/$name}"
   [[ -z "$name" ]] && { echo "usage: gwtree <name> [branch]"; return 1; }
 
-  mkdir -p ../wt
-  git worktree add "../wt/$name" -b "$branch" || return 1
-  cd "../wt/$name" || return 1
+  # Ensure we're inside a git repo and get repo root
+  local root
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+    echo "gwtree: not inside a git repository"
+    return 1
+  }
 
-  # --- uv env ---
-  uv venv --quiet
-  uv sync
+  # Put worktrees next to the repo root (stable no matter where you run it)
+  local wt_base="${root%/*}/wt"
+  local wt_path="${wt_base}/${name}"
 
-  # --- dbt isolation (per worktree) ---
+  mkdir -p "$wt_base" || return 1
+
+  # Optional: keep base branch fresh before branching (comment out if you dislike it)
+  # git -C "$root" switch main && git -C "$root" pull --ff-only || return 1
+
+  # Create worktree + branch (fails if branch already checked out elsewhere)
+  git -C "$root" worktree add -b "$branch" "$wt_path" || return 1
+  cd "$wt_path" || return 1
+
+  # uv: create per-worktree venv and sync deps (fast due to shared uv cache)
+  export UV_PROJECT_ENVIRONMENT=".venv"
+  uv venv --quiet || return 1
+  uv sync || return 1
+
+  # dbt: isolate artifacts per worktree
   export DBT_TARGET_PATH="target"
   export DBT_LOG_PATH="logs"
   mkdir -p "$DBT_LOG_PATH"
 
   if command -v dbt >/dev/null 2>&1; then
-    dbt deps >/dev/null 2>&1 || true
+    if ! dbt deps; then
+      echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)"
+    fi
   fi
 
-  lazygit
+  # Open tools (pick one behavior)
+  # cursor .   # uncomment if you always want Cursor
+  lazygit      # or remove this line if you don't always want it
 }
+
 
 # ---- fzf (fuzzy finder: Ctrl+R history, ** tab completion) ----
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
