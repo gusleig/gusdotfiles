@@ -355,6 +355,10 @@ gwtree() {
   git -C "$root" worktree add -b "$branch" "$wt_path" || return 1
   cd "$wt_path" || return 1
 
+  # Copy Claude Code context from main repo into worktree if present
+  [ -f "$root/CLAUDE.md" ] && cp "$root/CLAUDE.md" "$wt_path/"
+  [ -d "$root/.claude" ] && cp -r "$root/.claude" "$wt_path/"
+
   # uv: create per-worktree venv and sync deps (fast due to shared uv cache)
   export UV_PROJECT_ENVIRONMENT=".venv"
   uv venv --quiet || return 1
@@ -362,12 +366,17 @@ gwtree() {
   source .venv/bin/activate || return 1
 
   # dbt: isolate artifacts per worktree; run deps only if this is a dbt project
+  export DBT_PROFILES_DIR="${DBT_PROFILES_DIR:-$wt_path/dbt}"
   export DBT_TARGET_PATH="target"
   export DBT_LOG_PATH="logs"
   mkdir -p "$DBT_LOG_PATH"
-  if command -v dbt >/dev/null 2>&1 && { [ -d dbt ] || [ -f dbt_project.yml ]; }; then
-    if ! dbt deps; then
-      echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)"
+  if command -v dbt >/dev/null 2>&1; then
+    if [ -f dbt/dbt_project.yml ]; then
+      (cd dbt && dbt deps) || echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually from dbt/)"
+    elif [ -f dbt_project.yml ]; then
+      if ! dbt deps; then
+        echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)"
+      fi
     fi
   fi
 
