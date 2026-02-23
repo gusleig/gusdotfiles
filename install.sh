@@ -129,6 +129,7 @@ manage_services() {
 }
 
 package_to_install="
+    bash
     tmux
     tree
     wget
