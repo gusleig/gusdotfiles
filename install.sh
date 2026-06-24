@@ -51,16 +51,49 @@ sed_in_place() {
 DOTFILES_BLOCK_BEGIN="# === DOTFILES MANAGED BLOCK :: BEGIN (do not edit; see ~/.dotfiles) ==="
 DOTFILES_BLOCK_END="# === DOTFILES MANAGED BLOCK :: END ==="
 
-# One-time migration: strip the legacy (pre-managed-block) inline heredoc
-# that older installs appended to ~/.zshrc. Range is from
-# '# ---- Eza (better ls) ----' through the fzf source line.
+# One-time migration: quarantine (never blindly delete) the legacy
+# inline heredoc that older installs appended to ~/.zshrc. Range is from
+# '# ---- Eza (better ls) ----' through the fzf source line. We:
+#   1. Back up ~/.zshrc verbatim (before-legacy-migration.<ts>).
+#   2. Extract the legacy range to a quarantine file the user can review.
+#   3. Strip the range from ~/.zshrc so the new sentinel-managed block can
+#      take over loading.
+#
+# If validate_zshrc() (called by the caller) detects the resulting shell
+# can't start, we'll auto-rollback to the backup.
 remove_legacy_zsh_block() {
     local zshrc="$HOME/.zshrc"
     [ -f "$zshrc" ] || return 0
     if ! grep -qE '^# ---- Eza \(better ls\) ----$' "$zshrc"; then
         return 0
     fi
-    echo "Removing legacy inline shell block from $zshrc (one-time migration)..."
+
+    local ts
+    ts="$(date +%Y%m%d%H%M%S)"
+    local backup="${zshrc}.before-legacy-migration.${ts}"
+    local quarantine="${HOME}/.dotfiles-legacy-block.${ts}.zsh"
+
+    cp "$zshrc" "$backup"
+    echo "Backed up $zshrc -> $backup"
+
+    # Extract the legacy range to a quarantine file so user-added content
+    # (e.g. work-specific AWS helpers) is never lost.
+    awk '
+      /^# ---- Eza \(better ls\) ----$/ { in_block=1 }
+      in_block {
+        print
+        if ($0 == "[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh") in_block=0
+      }
+    ' "$zshrc" > "$quarantine"
+    local stripped_lines
+    stripped_lines=$(wc -l < "$quarantine" | tr -d ' ')
+
+    echo "Quarantined legacy inline block ($stripped_lines lines) -> $quarantine"
+    echo "  Review it. Move any custom additions (aliases, functions, exports)"
+    echo "  into ~/.zshrc.local (always auto-sourced, never touched by updates)."
+    echo "  Then 'rm $quarantine' when you're done."
+
+    # Now strip the range from .zshrc.
     awk '
       /^# ---- Eza \(better ls\) ----$/ { in_block=1 }
       in_block {
@@ -69,6 +102,59 @@ remove_legacy_zsh_block() {
       }
       { print }
     ' "$zshrc" > "$zshrc.tmp" && mv "$zshrc.tmp" "$zshrc"
+}
+
+# Run a clean non-interactive zsh against the current ~/.zshrc and verify
+# it can start. If it can't, the caller should rollback from the backup.
+# Returns 0 on success, non-zero on failure.
+validate_zshrc() {
+    # Use a brand-new zsh process so we don't inherit fixups from this script's
+    # environment. -i forces interactive-mode rc loading; -c ':' exits immediately.
+    # We swallow stdout/stderr but pass through exit code.
+    zsh -i -c ':' >/dev/null 2>&1
+}
+
+# After any destructive mutation of ~/.zshrc, call this to assert the
+# new file still starts a shell cleanly. If not, restore from $backup.
+verify_or_rollback_zshrc() {
+    local backup="$1"
+    if validate_zshrc; then
+        return 0
+    fi
+    echo "ERROR: zsh failed to start with the new ~/.zshrc." >&2
+    if [ -n "$backup" ] && [ -f "$backup" ]; then
+        echo "       Rolling back ~/.zshrc from $backup" >&2
+        cp "$backup" "$HOME/.zshrc"
+        echo "       Rollback complete. Investigate the failure before re-running." >&2
+    else
+        echo "       No backup available to roll back from." >&2
+    fi
+    return 1
+}
+
+# Make sure ~/.zshrc.local exists. If absent, create an empty template
+# explaining what goes there. This is the canonical home for user-local
+# shell config — never touched by 'dotfiles update'.
+ensure_local_zshrc() {
+    local local_rc="$HOME/.zshrc.local"
+    [ -f "$local_rc" ] && return 0
+    cat > "$local_rc" <<'LOCAL'
+#!/usr/bin/env zsh
+# ~/.zshrc.local — user-local shell config.
+#
+# This file is auto-sourced by the dotfiles managed block in ~/.zshrc
+# (via dotfiles/zsh/zshrc.d/99-local.zsh). Put any machine- or work-
+# specific shell config here so it survives every 'dotfiles update'.
+# Nothing in ~/.dotfiles will ever overwrite or remove this file.
+#
+# Examples:
+#   export AWS_PROFILE=hinge-prod
+#   export ECR_URI="123456789012.dkr.ecr.us-east-1.amazonaws.com"
+#   alias k="kubectl"
+#   source /opt/work/init.sh
+LOCAL
+    echo "Created empty $local_rc — put any work-specific shell config there."
+    echo "  It is auto-sourced by every new shell and is never touched by 'dotfiles update'."
 }
 
 # Idempotently (re)write the managed block in ~/.zshrc. The block is just a
@@ -159,8 +245,19 @@ update_software() {
     echo "================================================="
     echo "Re-syncing ~/.zshrc managed block..."
     echo "================================================="
+    # Snapshot the current ~/.zshrc so we can auto-rollback if any of the
+    # mutations below leave the shell unable to start.
+    local _pre_mutation_backup="$HOME/.zshrc.before-update.$(date +%Y%m%d%H%M%S)"
+    [ -f "$HOME/.zshrc" ] && cp "$HOME/.zshrc" "$_pre_mutation_backup"
+
     remove_legacy_zsh_block
     write_managed_block
+    ensure_local_zshrc
+
+    if ! verify_or_rollback_zshrc "$_pre_mutation_backup"; then
+        echo "       Update aborted to keep your shell working." >&2
+        return 1
+    fi
 
     echo ""
     echo "================================================="
@@ -437,8 +534,16 @@ sed_in_place 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highli
 # changes to gwtree, aliases, the `dotfiles` CLI, etc. arrive via 'git pull'
 # (i.e. 'dotfiles update') with no further edits to ~/.zshrc.
 echo "Installing dotfiles managed block in ~/.zshrc..."
+_pre_install_backup="$HOME/.zshrc.before-install.$(date +%Y%m%d%H%M%S)"
+[ -f "$HOME/.zshrc" ] && cp "$HOME/.zshrc" "$_pre_install_backup"
 remove_legacy_zsh_block
 write_managed_block
+ensure_local_zshrc
+verify_or_rollback_zshrc "$_pre_install_backup" || {
+    echo "Aborting install: new ~/.zshrc broke shell startup. Rolled back." >&2
+    exit 1
+}
+unset _pre_install_backup
 
 # Configure fzf keybindings (zsh) and git delta, when using Homebrew
 if command_exists brew; then
@@ -555,10 +660,19 @@ echo "  gwtree feat <ticket> <description> - branch feature/<ticket>/<descriptio
 echo "  gwtree from <branch> [<name>]      - worktree ../wt/<name> (default: basename branch), existing <branch>"
 echo "  gwtree --help                      - full usage"
 echo ""
-echo "Updates:"
+echo "Updates & safety:"
 echo "  dotfiles update       - pull ~/.dotfiles, run Brewfile, refresh ~/.zshrc"
 echo "                          managed block, update brew/Oh My Zsh/plugins/p10k"
 echo "  dotfiles status       - show repo status + commits ahead/behind upstream"
 echo "  dotfiles log          - show last 20 commits in ~/.dotfiles"
+echo "  dotfiles doctor       - health-check (PASS/WARN/FAIL): managed block,"
+echo "                          snippet syntax, brewfile sync, AWS creds, etc."
+echo "  dotfiles rollback     - restore ~/.zshrc from most recent backup"
+echo "                          (every install/update takes one automatically)"
 echo "  ./install.sh update   - same as 'dotfiles update' (run from anywhere)"
+echo ""
+echo "Work-specific shell config:"
+echo "  ~/.zshrc.local        - your private, never-touched shell config."
+echo "                          Put work aliases, exports, AWS helpers, etc."
+echo "                          here so they survive every 'dotfiles update'."
 echo ""

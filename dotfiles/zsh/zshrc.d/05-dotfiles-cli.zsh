@@ -27,17 +27,30 @@ dotfiles() {
     cd)
       cd "$repo"
       ;;
+    doctor)
+      shift
+      "$repo/scripts/dotfiles-doctor.sh" "$@"
+      ;;
+    rollback)
+      shift
+      "$repo/scripts/dotfiles-rollback.sh" "$@"
+      ;;
     -h|--help|"")
       cat <<'USAGE'
 dotfiles — manage your dotfiles repo.
 
 Usage:
-  dotfiles update    Pull repo, run Brewfile, refresh ~/.zshrc managed block,
-                     update brew formulae/casks + Oh My Zsh + plugins.
-  dotfiles status    Show repo status + commits ahead/behind upstream.
-  dotfiles log       Show last 20 commits in ~/.dotfiles.
-  dotfiles edit      Open ~/.dotfiles in your editor (cursor or $EDITOR).
-  dotfiles cd        cd into ~/.dotfiles.
+  dotfiles update     Pull repo, run Brewfile, refresh ~/.zshrc managed block,
+                      update brew formulae/casks + Oh My Zsh + plugins.
+  dotfiles status     Show repo status + commits ahead/behind upstream.
+  dotfiles log        Show last 20 commits in ~/.dotfiles.
+  dotfiles edit       Open ~/.dotfiles in your editor (cursor or $EDITOR).
+  dotfiles cd         cd into ~/.dotfiles.
+  dotfiles doctor     Health-check the dotfiles stack (PASS/WARN/FAIL).
+                      Run this when something feels off after an update.
+  dotfiles rollback   Restore ~/.zshrc from the most recent timestamped
+                      backup (taken before every install/update).
+                      Use '--list' to see backups, '-y' to skip confirmation.
 USAGE
       ;;
     *)

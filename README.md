@@ -57,15 +57,26 @@ The install script makes the list of installed CLI tools visible to AI so it can
 ~/.dotfiles/
 ├── install.sh              # Main installation script
 ├── install_sketchybar.sh   # Sketchybar setup (optional, run via install.sh prompt)
+├── Brewfile                # Source of truth for all brew-managed packages
 ├── README.md
 ├── .cursor/
 │   └── rules/
 │       └── installed-tools.mdc   # Cursor: rule listing available CLI tools
 ├── claude/
 │   └── dotfiles-tools.md        # Claude Code: same tools list for ~/.claude/CLAUDE.md
+├── scripts/
+│   ├── dotfiles-doctor.sh       # Health check (`dotfiles doctor`)
+│   ├── dotfiles-rollback.sh     # Restore ~/.zshrc backup (`dotfiles rollback`)
+│   └── fix-vscode-settings.sh
 ├── dotfiles/
 │   ├── skhdrc.symlink      # skhd hotkey config
-│   └── yabairc.symlink     # yabai window manager config
+│   ├── yabairc.symlink     # yabai window manager config
+│   └── zsh/zshrc.d/        # Modular zsh snippets sourced by ~/.zshrc
+│       ├── 00-eza-zoxide.zsh
+│       ├── 05-dotfiles-cli.zsh
+│       ├── 10-gwtree.zsh
+│       ├── 20-fzf.zsh
+│       └── 99-local.zsh   # sources ~/.zshrc.local (your work-specific config)
 ├── borders/
 │   └── bordersrc.symlink   # yabai borders config
 └── sketchybar/            # sketchybar config (if used)
@@ -161,7 +172,9 @@ Brief intro and examples for each tool installed by the script.
 4. Creates symlinks from `dotfiles/*.symlink` to `~/.filename` (e.g. `~/.skhdrc`, `~/.yabairc`).
 5. Configures fzf keybindings and delta as the git pager.
 6. Writes a single small **managed block** to `~/.zshrc` that sources every `*.zsh` file under [`dotfiles/zsh/zshrc.d/`](./dotfiles/zsh/zshrc.d/). All shell additions (`eza` alias, `zoxide` init, the `dotfiles` CLI, the `gwtree` function, fzf binding) live there, so future updates flow in via `git pull`.
-7. On macOS: starts yabai/skhd if present, optionally Sketchybar and AWS CLI.
+7. Creates an empty `~/.zshrc.local` template (only on first install/update) — your never-tracked, never-touched home for work-specific shell config.
+8. **Safely** migrates any legacy inline block from `~/.zshrc` to a quarantine file (`~/.dotfiles-legacy-block.<ts>.zsh`) and validates that the new `~/.zshrc` still starts a shell; if not, auto-rolls back from the timestamped backup taken before the mutation.
+9. On macOS: starts yabai/skhd if present, optionally Sketchybar and AWS CLI.
 
 ## Post-installation
 
@@ -218,12 +231,37 @@ Then run `exec zsh` (or open a new terminal) to reload.
 Other `dotfiles` subcommands:
 
 ```bash
-dotfiles status   # repo status + commits ahead/behind upstream
-dotfiles log      # last 20 commits in ~/.dotfiles
-dotfiles edit     # open ~/.dotfiles in Cursor (or $EDITOR)
-dotfiles cd       # cd into ~/.dotfiles
-dotfiles --help   # show this list
+dotfiles status     # repo status + commits ahead/behind upstream
+dotfiles log        # last 20 commits in ~/.dotfiles
+dotfiles edit       # open ~/.dotfiles in Cursor (or $EDITOR)
+dotfiles cd         # cd into ~/.dotfiles
+dotfiles doctor     # health-check (PASS/WARN/FAIL): managed block, snippet
+                    # syntax, Brewfile sync, AWS creds, opal interpreter, etc.
+dotfiles rollback   # restore ~/.zshrc from the most recent timestamped backup
+                    # (every install/update takes one before mutating)
+                    # use --list to inspect, -y to skip confirmation
+dotfiles --help     # show this list
 ```
+
+### Safety net: backups, validation, quarantine
+
+Every `dotfiles update` (and the first install) now applies several safeguards to your `~/.zshrc`:
+
+- **Timestamped backup before any mutation** — `~/.zshrc.before-update.<ts>` (or `before-install`/`before-legacy-migration`). Inspect with `dotfiles rollback --list`.
+- **Post-mutation validation** — after rewriting the managed block, the script runs a fresh `zsh -i -c ':'` to confirm the shell still starts. If it doesn't, the just-taken backup is auto-restored and the update aborts.
+- **Quarantine, not delete, for the legacy migration** — the old inline block that lived in `~/.zshrc` (eza/zoxide/gwtree/fzf as raw lines) is extracted to `~/.dotfiles-legacy-block.<ts>.zsh` instead of being deleted, so any custom lines you'd added inside that range are preserved for you to review and move into `~/.zshrc.local`.
+- **Manual rollback** — `dotfiles rollback` reverts `~/.zshrc` to the newest backup, with a diff preview.
+- **`dotfiles doctor`** — independent health check you can run any time; flags missing managed block, broken snippet syntax, missing Brewfile packages, empty AWS profiles, broken opal shebang, repo behind upstream, etc.
+
+### `~/.zshrc.local` — your never-touched, work-specific config
+
+The managed block sources `~/.zshrc.local` last (via [`99-local.zsh`](./dotfiles/zsh/zshrc.d/99-local.zsh)). This file is:
+
+- **Not tracked in `~/.dotfiles`**, so it can hold work-specific secrets, profile IDs, or aliases without ending up on GitHub.
+- **Never modified by `dotfiles update`** — no migration, anchor-detection, or backup logic ever touches it.
+- **Auto-created (empty, with usage comments)** on install/update if it doesn't exist.
+
+Use it for anything personal/machine-specific: `export AWS_PROFILE=...`, work-only aliases, `source /opt/work/init.sh`, etc.
 
 ### Releasing updates (for the maintainer)
 

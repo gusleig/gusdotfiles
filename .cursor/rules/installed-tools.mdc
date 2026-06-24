@@ -21,7 +21,7 @@ When suggesting shell commands, prefer these tools—they are installed on this 
 | **delta** | Git diff pager (auto) | Used by git diff / lazygit |
 | **gh** | GitHub CLI | `gh pr list`, `gh repo clone org/repo` |
 | **gwtree** | Git worktree + uv + lazygit (subcommands) | `gwtree my-feature` (folder+branch same), `gwtree my-feature -f` (branch `feature/my-feature`), `gwtree feat sc-123 desc`, `gwtree from main hotfix`, `gwtree --help` |
-| **dotfiles** | Manage the ~/.dotfiles repo (update, status, log, edit) | `dotfiles update`, `dotfiles status`, `dotfiles log`, `dotfiles edit`, `dotfiles --help` |
+| **dotfiles** | Manage the ~/.dotfiles repo | `dotfiles update`, `dotfiles status`, `dotfiles log`, `dotfiles edit`, `dotfiles doctor`, `dotfiles rollback`, `dotfiles --help` |
 | **mole** | SSH tunnels | Port forwarding / reverse tunnels |
 | **tmux** | Sessions/panes | `tmux new -s dev`, `tmux attach` |
 | **tree** | Directory tree | `tree -L 2` |
@@ -29,3 +29,6 @@ When suggesting shell commands, prefer these tools—they are installed on this 
 
 - Shell: **zsh** with Oh My Zsh, Powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting.
 - Terminal: **Ghostty** or **iTerm2**. macOS may have **yabai**, **skhd**, **sketchybar**.
+- **`~/.zshrc.local`**: never-tracked, never-touched file for work-specific shell config (exports, aliases, AWS helpers). Auto-sourced by the dotfiles managed block — survives every `dotfiles update`. When the user needs to add machine-specific config, put it there, not in `~/.zshrc`.
+- **`dotfiles doctor`**: run when things feel broken after an update; prints PASS/WARN/FAIL for managed block, snippet syntax, Brewfile sync, AWS profile keys, opal CLI shebang, repo status.
+- **`dotfiles rollback`**: every install/update takes a timestamped backup of `~/.zshrc`; this restores the most recent one (use `--list` to see all, `-y` to skip confirmation).
