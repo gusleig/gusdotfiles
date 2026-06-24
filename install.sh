@@ -46,17 +46,137 @@ sed_in_place() {
     fi
 }
 
-# Update installed software (Homebrew, Oh My Zsh plugins, etc.)
+# Sentinel markers for the dotfiles-managed block in ~/.zshrc.
+# These let us idempotently rewrite the block on every install/update.
+DOTFILES_BLOCK_BEGIN="# === DOTFILES MANAGED BLOCK :: BEGIN (do not edit; see ~/.dotfiles) ==="
+DOTFILES_BLOCK_END="# === DOTFILES MANAGED BLOCK :: END ==="
+
+# One-time migration: strip the legacy (pre-managed-block) inline heredoc
+# that older installs appended to ~/.zshrc. Range is from
+# '# ---- Eza (better ls) ----' through the fzf source line.
+remove_legacy_zsh_block() {
+    local zshrc="$HOME/.zshrc"
+    [ -f "$zshrc" ] || return 0
+    if ! grep -qE '^# ---- Eza \(better ls\) ----$' "$zshrc"; then
+        return 0
+    fi
+    echo "Removing legacy inline shell block from $zshrc (one-time migration)..."
+    awk '
+      /^# ---- Eza \(better ls\) ----$/ { in_block=1 }
+      in_block {
+        if ($0 == "[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh") { in_block=0; next }
+        next
+      }
+      { print }
+    ' "$zshrc" > "$zshrc.tmp" && mv "$zshrc.tmp" "$zshrc"
+}
+
+# Idempotently (re)write the managed block in ~/.zshrc. The block is just a
+# tiny loader that sources every *.zsh in dotfiles/zsh/zshrc.d/, so future
+# updates to gwtree, aliases, etc. arrive via a simple 'git pull'.
+write_managed_block() {
+    local zshrc="$HOME/.zshrc"
+    [ -f "$zshrc" ] || touch "$zshrc"
+
+    # Strip any existing managed block first (handles re-runs cleanly).
+    if grep -qF "$DOTFILES_BLOCK_BEGIN" "$zshrc"; then
+        awk -v B="$DOTFILES_BLOCK_BEGIN" -v E="$DOTFILES_BLOCK_END" '
+          $0 == B { in_block=1; next }
+          in_block { if ($0 == E) in_block=0; next }
+          { print }
+        ' "$zshrc" > "$zshrc.tmp" && mv "$zshrc.tmp" "$zshrc"
+    fi
+
+    # Trim trailing blank lines so successive rewrites don't accumulate them.
+    awk '
+      { lines[NR]=$0 }
+      END {
+        last=NR
+        while (last > 0 && lines[last] ~ /^[[:space:]]*$/) last--
+        for (i=1; i<=last; i++) print lines[i]
+      }
+    ' "$zshrc" > "$zshrc.tmp" && mv "$zshrc.tmp" "$zshrc"
+
+    cat >> "$zshrc" <<BLOCK
+
+$DOTFILES_BLOCK_BEGIN
+# Source every *.zsh in ~/.dotfiles/dotfiles/zsh/zshrc.d/ in name order.
+# Add new shell functions/aliases by dropping a *.zsh file there.
+if [ -d "\$HOME/.dotfiles/dotfiles/zsh/zshrc.d" ]; then
+  for _df_f in "\$HOME"/.dotfiles/dotfiles/zsh/zshrc.d/*.zsh; do
+    [ -r "\$_df_f" ] && source "\$_df_f"
+  done
+  unset _df_f
+fi
+$DOTFILES_BLOCK_END
+BLOCK
+    echo "Refreshed dotfiles managed block in $zshrc"
+}
+
+# Install Homebrew packages via Brewfile (idempotent, picks up new tools).
+brew_bundle_install() {
+    if ! command_exists brew; then
+        return 0
+    fi
+    local brewfile="$HOME/.dotfiles/Brewfile"
+    if [ -f "$brewfile" ]; then
+        echo "Installing/updating packages from Brewfile..."
+        brew bundle install --file "$brewfile" || echo "warning: 'brew bundle install' reported errors"
+    else
+        echo "warning: $brewfile not found; skipping brew bundle."
+    fi
+}
+
+# Update installed software:
+#   1) Pull ~/.dotfiles (with auto-stash if dirty).
+#   2) Re-run Brewfile so new tools land automatically.
+#   3) Re-emit the managed block in ~/.zshrc (and migrate legacy block).
+#   4) Update brew, Oh My Zsh, p10k, plugins.
+#   5) Print the new commits since last update so the user sees what changed.
 update_software() {
     echo "================================================="
-    echo "Updating installed software..."
+    echo "Updating ~/.dotfiles repo..."
     echo "================================================="
+    local old_head="" new_head=""
+    local dirty=0
+    if [ -d "$HOME/.dotfiles/.git" ]; then
+        old_head=$(git -C "$HOME/.dotfiles" rev-parse HEAD 2>/dev/null || echo "")
+        if ! git -C "$HOME/.dotfiles" diff --quiet 2>/dev/null \
+            || ! git -C "$HOME/.dotfiles" diff --cached --quiet 2>/dev/null; then
+            dirty=1
+            echo "Stashing local changes in ~/.dotfiles..."
+            git -C "$HOME/.dotfiles" stash push -u \
+                -m "dotfiles auto-stash $(date +%Y%m%d%H%M%S)" || true
+        fi
+        git -C "$HOME/.dotfiles" pull --ff-only \
+            || echo "git pull failed; resolve manually then re-run."
+        new_head=$(git -C "$HOME/.dotfiles" rev-parse HEAD 2>/dev/null || echo "")
+    else
+        echo "~/.dotfiles is not a git repo; skipping pull."
+    fi
+
+    echo ""
+    echo "================================================="
+    echo "Re-syncing ~/.zshrc managed block..."
+    echo "================================================="
+    remove_legacy_zsh_block
+    write_managed_block
+
+    echo ""
+    echo "================================================="
+    echo "Installing/updating Homebrew packages via Brewfile..."
+    echo "================================================="
+    brew_bundle_install
     if command_exists brew; then
-        echo "Updating Homebrew and formulae..."
+        echo "Updating Homebrew formulae and casks..."
         brew update && brew upgrade
-        echo "Updating casks..."
         brew upgrade --cask
     fi
+
+    echo ""
+    echo "================================================="
+    echo "Updating Oh My Zsh + plugins..."
+    echo "================================================="
     if [ -d "$HOME/.oh-my-zsh" ]; then
         echo "Updating Oh My Zsh..."
         (cd "$HOME/.oh-my-zsh" && git pull)
@@ -71,7 +191,23 @@ update_software() {
             fi
         done
     fi
-    echo "Software update complete."
+
+    if [ -n "$old_head" ] && [ -n "$new_head" ] && [ "$old_head" != "$new_head" ]; then
+        echo ""
+        echo "================================================="
+        echo "Changes in ~/.dotfiles since last update:"
+        echo "================================================="
+        git -C "$HOME/.dotfiles" log --oneline "$old_head..$new_head"
+    fi
+
+    if [ "$dirty" = "1" ]; then
+        echo ""
+        echo "Note: your local ~/.dotfiles changes are in 'git stash'."
+        echo "      Re-apply with: git -C ~/.dotfiles stash pop"
+    fi
+
+    echo ""
+    echo "Update complete. Run 'exec zsh' or open a new terminal to reload."
 }
 
 # Function to create symlinks for dotfiles
@@ -128,6 +264,7 @@ manage_services() {
     fi
 }
 
+# Linux fallback list (apt/yum only). On macOS we use the Brewfile.
 package_to_install="
     bash
     tmux
@@ -137,18 +274,6 @@ package_to_install="
     zsh
     curl
     git
-    eza
-    zoxide
-    mole
-    lazygit
-    fzf
-    bat
-    ripgrep
-    fd
-    delta
-    gh
-    zsh-autosuggestions
-    zsh-syntax-highlighting
 "
 
 # Function to install packages based on the package manager
@@ -170,9 +295,11 @@ install_packages() {
         # For eza and zoxide on RHEL/CentOS, recommend manual installation
         echo "Please install eza and zoxide manually for your RHEL/CentOS system"
     elif command_exists brew; then
-        brew install $package_to_install
+        # All formulae + casks live in ~/.dotfiles/Brewfile so updates flow
+        # automatically through 'dotfiles update' / 'brew bundle install'.
+        brew_bundle_install
 
-        # Terminal choice: iTerm2 or Ghostty
+        # Terminal choice is interactive, so handle it separately from Brewfile.
         local term_choice
         term_choice=$(ask_choice "Preferred terminal? 1) iTerm2  2) Ghostty" "iTerm2" "Ghostty")
         if [ "$term_choice" = "2" ]; then
@@ -305,91 +432,13 @@ manage_services
 # Update plugins in .zshrc
 sed_in_place 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$HOME/.zshrc"
 
-# Add eza alias, zoxide, and custom functions
-echo "Adding eza alias, zoxide, and gwtree worktree helper..."
-cat << 'EOF' >> "$HOME/.zshrc"
-
-# ---- Eza (better ls) ----
-alias ls="eza --icons=always"
-
-# ---- Zoxide (better cd) ----
-eval "$(zoxide init zsh)"
-
-# ---- Git worktree helper (gwtree = git worktree; avoids conflict with git plugin's gwt) ----
-# Usage:
-#   gwtree <name>                    → ../wt/<name>, branch feature/<name>
-#   gwtree <ticket> <description>     → ../wt/<description>, branch feature/<ticket>/<description> (if 2nd arg has no /)
-#   gwtree <name> <branch>           → ../wt/<name>, branch <branch> (e.g. gwtree hotfix main)
-gwtree() {
-  local name="$1"
-  local second="${2:-}"
-  local branch
-  local wt_name
-
-  [[ -z "$name" ]] && { echo "usage: gwtree <name> [branch]\n       gwtree <ticket> <description>  # branch = feature/<ticket>/<description>"; return 1; }
-
-  if [[ -n "$second" && "$second" != */* && "$second" != "main" && "$second" != "master" ]]; then
-    wt_name="$second"
-    branch="feature/${name}/${second}"
-  else
-    wt_name="$name"
-    branch="${second:-feature/$name}"
-  fi
-
-  # Ensure we're inside a git repo and get repo root
-  local root
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-    echo "gwtree: not inside a git repository"
-    return 1
-  }
-
-  # Put worktrees next to the repo root (stable no matter where you run it)
-  local wt_base="${root%/*}/wt"
-  local wt_path="${wt_base}/${wt_name}"
-
-  mkdir -p "$wt_base" || return 1
-
-  # Optional: keep base branch fresh before branching (comment out if you dislike it)
-  # git -C "$root" switch main && git -C "$root" pull --ff-only || return 1
-
-  # Create worktree + branch (fails if branch already checked out elsewhere)
-  git -C "$root" worktree add -b "$branch" "$wt_path" || return 1
-  cd "$wt_path" || return 1
-
-  # Copy Claude Code context from main repo into worktree if present
-  [ -f "$root/CLAUDE.md" ] && cp "$root/CLAUDE.md" "$wt_path/"
-  [ -d "$root/.claude" ] && cp -r "$root/.claude" "$wt_path/"
-
-  # uv: create per-worktree venv and sync deps (fast due to shared uv cache)
-  export UV_PROJECT_ENVIRONMENT=".venv"
-  uv venv --quiet || return 1
-  uv sync || return 1
-  source .venv/bin/activate || return 1
-
-  # dbt: isolate artifacts per worktree; run deps only if this is a dbt project
-  export DBT_PROFILES_DIR="${DBT_PROFILES_DIR:-$wt_path/dbt}"
-  export DBT_TARGET_PATH="target"
-  export DBT_LOG_PATH="logs"
-  mkdir -p "$DBT_LOG_PATH"
-  if command -v dbt >/dev/null 2>&1; then
-    if [ -f dbt/dbt_project.yml ]; then
-      (cd dbt && dbt deps) || echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually from dbt/)"
-    elif [ -f dbt_project.yml ]; then
-      if ! dbt deps; then
-        echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)"
-      fi
-    fi
-  fi
-
-  # Open tools (pick one behavior)
-  # cursor .   # uncomment if you always want Cursor
-  lazygit      # or remove this line if you don't always want it
-}
-
-
-# ---- fzf (fuzzy finder: Ctrl+R history, ** tab completion) ----
-[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
-EOF
+# Install/refresh the dotfiles-managed block in ~/.zshrc.
+# The block is just a sourcing loop over dotfiles/zsh/zshrc.d/*.zsh, so future
+# changes to gwtree, aliases, the `dotfiles` CLI, etc. arrive via 'git pull'
+# (i.e. 'dotfiles update') with no further edits to ~/.zshrc.
+echo "Installing dotfiles managed block in ~/.zshrc..."
+remove_legacy_zsh_block
+write_managed_block
 
 # Configure fzf keybindings (zsh) and git delta, when using Homebrew
 if command_exists brew; then
@@ -404,20 +453,8 @@ if command_exists brew; then
     fi
 fi
 
-# macOS-only: fonts, alt-tab
-if command_exists brew; then
-    echo "================================================="
-    echo "Install fonts and Alt-tab"
-    echo "================================================="
-    brew tap epk/epk
-    brew install --cask font-sf-mono-nerd-font
-
-    echo "================================================="
-    echo "Installing Alt-tab and Raycast"
-    echo "================================================="
-    brew install --cask alt-tab
-    brew install --cask raycast
-fi
+# macOS apps (fonts, alt-tab, raycast, stats) are now declared in the
+# Brewfile and installed by brew_bundle_install above. Nothing to do here.
 
 # Install recommended font (MesloLGS NF) - works on macOS and Linux
 echo "Installing recommended Meslo Nerd Font..."
@@ -510,13 +547,18 @@ echo "  fd <name>   - fd (simple fast find)"
 echo "  watch <cmd> - run a command repeatedly (e.g. watch -n 2 'git status')"
 echo "  Ctrl+R     - fzf (fuzzy search shell history)"
 echo "  lazygit     - TUI for git (commit, branches, diff; uses delta for diffs)"
+echo "  lazydocker  - TUI for docker (containers, images, logs, stats)"
 echo "  gh          - GitHub CLI (pr, issue, repo from terminal)"
 echo "  aws s3 ...  - AWS CLI / S3 (if installed)"
-echo "  gwtree <name> [branch] - create worktree in ../wt/, set up uv + dbt, open lazygit"
-echo "                          e.g. gwtree my-feature    → ../wt/my-feature, branch feature/my-feature"
-echo "                               gwtree sc-123 desc   → ../wt/desc, branch feature/sc-123/desc"
-echo "                               gwtree hotfix main   → ../wt/hotfix, branch main"
+echo "  gwtree <name> [-f] [-y]            - worktree ../wt/<name>, branch <name> (use -f for feature/<name>)"
+echo "  gwtree feat <ticket> <description> - branch feature/<ticket>/<description>, folder ../wt/<description>"
+echo "  gwtree from <branch> [<name>]      - worktree ../wt/<name> (default: basename branch), existing <branch>"
+echo "  gwtree --help                      - full usage"
 echo ""
 echo "Updates:"
-echo "  ./install.sh update   - update Homebrew, Oh My Zsh, plugins, Powerlevel10k"
+echo "  dotfiles update       - pull ~/.dotfiles, run Brewfile, refresh ~/.zshrc"
+echo "                          managed block, update brew/Oh My Zsh/plugins/p10k"
+echo "  dotfiles status       - show repo status + commits ahead/behind upstream"
+echo "  dotfiles log          - show last 20 commits in ~/.dotfiles"
+echo "  ./install.sh update   - same as 'dotfiles update' (run from anywhere)"
 echo ""

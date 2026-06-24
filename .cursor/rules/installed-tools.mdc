@@ -17,9 +17,11 @@ When suggesting shell commands, prefer these tools—they are installed on this 
 | **watch** | Run command repeatedly | `watch -n 2 'git status'` |
 | **fzf** | Fuzzy find (Ctrl+R in shell) | History search, `**` + Tab for files |
 | **lazygit** | Git TUI | `lazygit` |
+| **lazydocker** | Docker TUI (containers/images/logs/stats) | `lazydocker` |
 | **delta** | Git diff pager (auto) | Used by git diff / lazygit |
 | **gh** | GitHub CLI | `gh pr list`, `gh repo clone org/repo` |
-| **gwtree** | Git worktree + uv + lazygit | `gwtree my-feature`, `gwtree sc-123 description`, `gwtree hotfix main` |
+| **gwtree** | Git worktree + uv + lazygit (subcommands) | `gwtree my-feature` (folder+branch same), `gwtree my-feature -f` (branch `feature/my-feature`), `gwtree feat sc-123 desc`, `gwtree from main hotfix`, `gwtree --help` |
+| **dotfiles** | Manage the ~/.dotfiles repo (update, status, log, edit) | `dotfiles update`, `dotfiles status`, `dotfiles log`, `dotfiles edit`, `dotfiles --help` |
 | **mole** | SSH tunnels | Port forwarding / reverse tunnels |
 | **tmux** | Sessions/panes | `tmux new -s dev`, `tmux attach` |
 | **tree** | Directory tree | `tree -L 2` |
