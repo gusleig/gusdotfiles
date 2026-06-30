@@ -124,6 +124,12 @@ USAGE
     uv venv --quiet || return 1
     uv sync || return 1
     source .venv/bin/activate || return 1
+  else
+    echo "gwtree: WARN: 'uv' not on PATH — skipping uv venv + uv sync." >&2
+    echo "        ~/.local/bin missing from PATH? Try:" >&2
+    echo "          export PATH=\"\$HOME/.local/bin:\$PATH\" && uv venv && uv sync && source .venv/bin/activate" >&2
+    echo "        Or pull the latest dotfiles (which add ~/.local/bin to PATH):" >&2
+    echo "          dotfiles update" >&2
   fi
 
   export DBT_PROFILES_DIR="${DBT_PROFILES_DIR:-$wt_path/dbt}"
@@ -132,13 +138,20 @@ USAGE
   mkdir -p "$DBT_LOG_PATH"
   if command -v dbt >/dev/null 2>&1; then
     if [ -f dbt/dbt_project.yml ]; then
-      (cd dbt && dbt deps) || echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually from dbt/)"
+      (cd dbt && dbt deps) || echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually from dbt/)" >&2
     elif [ -f dbt_project.yml ]; then
       if ! dbt deps; then
-        echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)"
+        echo "gwtree: warning: 'dbt deps' failed (you can rerun it manually)" >&2
       fi
     fi
+  elif [ -f dbt/dbt_project.yml ] || [ -f dbt_project.yml ]; then
+    echo "gwtree: WARN: dbt project detected but 'dbt' not on PATH — skipping 'dbt deps'." >&2
+    echo "        Did the uv venv activate? Then: cd dbt && dbt deps" >&2
   fi
 
-  command -v lazygit >/dev/null 2>&1 && lazygit
+  if command -v lazygit >/dev/null 2>&1; then
+    lazygit
+  else
+    echo "gwtree: note: lazygit not installed; skipping its launch." >&2
+  fi
 }
