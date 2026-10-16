@@ -41,13 +41,12 @@ The install script makes the list of installed CLI tools visible to AI so it can
   Symlinks `.cursor/rules/` to `~/.cursor/rules/`. The rule **installed-tools.mdc** applies when you work in this repo or in a workspace that includes `~/.cursor/rules/`.  
   For other projects: copy `~/.dotfiles/.cursor/rules/installed-tools.mdc` into that project’s `.cursor/rules/`, or add it via **Cursor → Settings → Rules → User Rules**.
 
-- **Claude Code only (no Cursor)**  
-  Claude Code loads context from **~/.claude/CLAUDE.md**. The install script:
-  - Symlinks `~/.claude/dotfiles-tools.md` → this repo’s `claude/dotfiles-tools.md`.
-  - If `~/.claude/CLAUDE.md` does not exist, creates it with the tools list.
-  - If it already exists, appends the tools section once (skips if already present).
+- **Claude Code**  
+  Claude Code loads every file in `~/.claude/rules/` in every session. Install and `dotfiles update` symlink `~/.claude/rules/dotfiles-tools.md` to this repo's [`claude/dotfiles-tools.md`](./claude/dotfiles-tools.md). A `git pull` keeps it current. Your `~/.claude/CLAUDE.md` is never edited.
 
-  So if you use Claude Code but not Cursor, the same tools list is still loaded from `~/.claude/CLAUDE.md`.
+  The tools list also points Claude to the [tmux workflow guide](./docs/tmux-claude-workflow.md). Ask Claude "how do I resume my task after a reboot?" and it reads the guide.
+
+  Older installs pasted a copy of the tools list into `~/.claude/CLAUDE.md`. `dotfiles doctor` warns about it. Delete that copy by hand.
 
 ![alt text](image.png)
 
@@ -63,7 +62,9 @@ The install script makes the list of installed CLI tools visible to AI so it can
 │   └── rules/
 │       └── installed-tools.mdc   # Cursor: rule listing available CLI tools
 ├── claude/
-│   └── dotfiles-tools.md        # Claude Code: same tools list for ~/.claude/CLAUDE.md
+│   └── dotfiles-tools.md        # Claude Code: tools list, linked into ~/.claude/rules/
+├── docs/
+│   └── tmux-claude-workflow.md  # Step-by-step tmux + Claude Code guide
 ├── scripts/
 │   ├── dotfiles-doctor.sh       # Health check (`dotfiles doctor`)
 │   ├── dotfiles-rollback.sh     # Restore ~/.zshrc backup (`dotfiles rollback`)
@@ -170,6 +171,8 @@ Brief intro and examples for each tool installed by the script.
 ## tmux workspace (Ghostty + tmux + sesh)
 
 The idea: one tmux session per **task**, even when a Claude Code or Codex conversation touches several repos. tmux keeps the sessions alive, sesh makes them searchable, and the agent keeps its own conversation history. Repo `CLAUDE.md` files stay in their repos.
+
+**New to this? Read the step-by-step guide: [docs/tmux-claude-workflow.md](./docs/tmux-claude-workflow.md).**
 
 The config lives in [`dotfiles/tmux.conf.symlink`](./dotfiles/tmux.conf.symlink) and is symlinked to `~/.tmux.conf`. Plugins are managed by [TPM](https://github.com/tmux-plugins/tpm): vim-tmux-navigator, tmux-resurrect, tmux-continuum, and the Tokyo Night theme.
 

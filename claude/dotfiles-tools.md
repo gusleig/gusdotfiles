@@ -27,4 +27,5 @@ When suggesting shell commands, prefer these tools—they are installed on this 
 - Terminal: **Ghostty** or **iTerm2**. macOS may have **yabai**, **skhd**, **sketchybar**.
 - **`~/.zshrc.local`**: never-tracked, never-touched file for work-specific shell config (exports, aliases, AWS helpers). Auto-sourced by the dotfiles managed block — survives every `dotfiles update`. When the user needs to add machine-specific config, put it there, not in `~/.zshrc`.
 - **`dotfiles doctor`**: run when things feel broken after an update; prints PASS/WARN/FAIL for managed block, snippet syntax, Brewfile sync, AWS profile keys, opal CLI shebang, repo status.
+- **tmux + Claude Code workflow**: when the user asks how to start, switch, resume, or finish task sessions, read `~/.dotfiles/docs/tmux-claude-workflow.md` and answer from it.
 - **`dotfiles rollback`**: every install/update takes a timestamped backup of `~/.zshrc`; this restores the most recent one (use `--list` to see all, `-y` to skip confirmation).

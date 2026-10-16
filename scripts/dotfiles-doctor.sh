@@ -181,7 +181,22 @@ else
     say_fail "tmux-setup.sh missing or not executable: $TMUX_SETUP"
 fi
 
-# ---------- 7. opal CLI sanity (only if installed) ----------
+# ---------- 7. Claude Code context ----------
+section "Claude Code context"
+
+CLAUDE_RULE="$HOME/.claude/rules/dotfiles-tools.md"
+if [ -L "$CLAUDE_RULE" ] && [ "$(readlink "$CLAUDE_RULE")" = "$REPO/claude/dotfiles-tools.md" ]; then
+    say_pass "~/.claude/rules/dotfiles-tools.md -> claude/dotfiles-tools.md"
+else
+    say_warn "Claude Code does not load the dotfiles tools list" \
+             "Run 'dotfiles update' to link ~/.claude/rules/dotfiles-tools.md."
+fi
+if grep -qF "Installed tools (dotfiles stack)" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
+    say_warn "~/.claude/CLAUDE.md has an old pasted copy of the tools list" \
+             "Delete that section. The linked file in ~/.claude/rules/ replaces it."
+fi
+
+# ---------- 8. opal CLI sanity (only if installed) ----------
 section "Opal CLI (if installed)"
 
 if command -v opal >/dev/null 2>&1; then
@@ -200,7 +215,7 @@ else
     say_pass "opal CLI not installed (skipped)"
 fi
 
-# ---------- 8. AWS credentials sanity ----------
+# ---------- 9. AWS credentials sanity ----------
 section "AWS credentials (sanity)"
 
 CREDS="$HOME/.aws/credentials"

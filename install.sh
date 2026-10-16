@@ -275,6 +275,7 @@ update_software() {
     echo "Updating tmux config + plugins..."
     echo "================================================="
     setup_tmux
+    link_claude_context
 
     echo ""
     echo "================================================="
@@ -323,6 +324,22 @@ setup_tmux() {
     fi
     if [ -x "$script" ]; then
         "$script" update || echo "warning: tmux setup reported problems; run 'dotfiles tmux check'."
+    fi
+}
+
+# Claude Code loads every file in ~/.claude/rules/ in every session, so a
+# symlink there keeps the tools list current after each 'git pull'.
+# ~/.claude/CLAUDE.md stays the user's own file and is never edited.
+link_claude_context() {
+    local src="$HOME/.dotfiles/claude/dotfiles-tools.md"
+    local dest="$HOME/.claude/rules/dotfiles-tools.md"
+    [ -f "$src" ] || return 0
+    mkdir -p "$HOME/.claude/rules"
+    ln -sfn "$src" "$dest"
+    echo "Linked Claude Code context: $dest"
+    if grep -qF "Installed tools (dotfiles stack)" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
+        echo "note: ~/.claude/CLAUDE.md still has an old pasted copy of the tools list."
+        echo "      It is now loaded from ~/.claude/rules/. You can delete the copy from CLAUDE.md."
     fi
 }
 
@@ -615,20 +632,8 @@ if [ -d "$HOME/.dotfiles/.cursor/rules" ]; then
     done
 fi
 
-# Claude Code install context: ensure ~/.claude/CLAUDE.md includes installed tools (for users who use Claude Code, not Cursor)
-if [ -f "$HOME/.dotfiles/claude/dotfiles-tools.md" ]; then
-    echo "Setting up Claude Code install context..."
-    mkdir -p "$HOME/.claude"
-    ln -sf "$HOME/.dotfiles/claude/dotfiles-tools.md" "$HOME/.claude/dotfiles-tools.md"
-    if [ ! -f "$HOME/.claude/CLAUDE.md" ]; then
-        cp "$HOME/.dotfiles/claude/dotfiles-tools.md" "$HOME/.claude/CLAUDE.md"
-        echo "Created ~/.claude/CLAUDE.md with installed tools list."
-    elif ! grep -q "Installed tools (dotfiles stack)" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
-        printf '\n\n---\n\n' >> "$HOME/.claude/CLAUDE.md"
-        cat "$HOME/.dotfiles/claude/dotfiles-tools.md" >> "$HOME/.claude/CLAUDE.md"
-        echo "Appended installed tools section to ~/.claude/CLAUDE.md"
-    fi
-fi
+# Claude Code install context: tools list + pointer to the tmux workflow guide
+link_claude_context
 
 # Optional: sketchybar (macOS only)
 if command_exists brew && [ -f "$HOME/.dotfiles/install_sketchybar.sh" ]; then
