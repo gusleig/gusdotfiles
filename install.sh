@@ -272,6 +272,12 @@ update_software() {
 
     echo ""
     echo "================================================="
+    echo "Updating tmux config + plugins..."
+    echo "================================================="
+    setup_tmux
+
+    echo ""
+    echo "================================================="
     echo "Updating Oh My Zsh + plugins..."
     echo "================================================="
     if [ -d "$HOME/.oh-my-zsh" ]; then
@@ -305,6 +311,19 @@ update_software() {
 
     echo ""
     echo "Update complete. Run 'exec zsh' or open a new terminal to reload."
+}
+
+# Link ~/.tmux.conf, install/update TPM + plugins, reload running tmux.
+# Never fatal: a tmux problem shouldn't abort the rest of install/update.
+setup_tmux() {
+    local script="$HOME/.dotfiles/scripts/tmux-setup.sh"
+    if ! command_exists tmux; then
+        echo "tmux not installed; skipping tmux setup."
+        return 0
+    fi
+    if [ -x "$script" ]; then
+        "$script" update || echo "warning: tmux setup reported problems; run 'dotfiles tmux check'."
+    fi
 }
 
 # Function to create symlinks for dotfiles
@@ -523,6 +542,9 @@ fi
 # Create symlinks for dotfiles
 create_symlinks
 
+# tmux: config link (done above), TPM, plugins
+setup_tmux
+
 # Start services after symlinks are created
 manage_services
 
@@ -670,6 +692,13 @@ echo "                          snippet syntax, brewfile sync, AWS creds, etc."
 echo "  dotfiles rollback     - restore ~/.zshrc from most recent backup"
 echo "                          (every install/update takes one automatically)"
 echo "  ./install.sh update   - same as 'dotfiles update' (run from anywhere)"
+echo "  dotfiles tmux check   - verify tmux config link, syntax, TPM, plugins"
+echo "  dotfiles tmux update  - re-link ~/.tmux.conf, install/update plugins"
+echo ""
+echo "tmux (prefix is Ctrl+A):"
+echo "  tmux new -s <task>    - one session per task (Claude/Codex inside)"
+echo "  Ctrl+A, Shift+T       - sesh picker to switch tasks (Ctrl+O preview)"
+echo "  Ctrl+A, d             - detach; 'tmux attach -t <task>' to come back"
 echo ""
 echo "Work-specific shell config:"
 echo "  ~/.zshrc.local        - your private, never-touched shell config."

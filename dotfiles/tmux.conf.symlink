@@ -1,0 +1,57 @@
+# ~/.tmux.conf: managed by ~/.dotfiles (dotfiles/tmux.conf.symlink)
+# Ghostty + tmux + sesh workspace for Claude Code / Codex.
+# Prefix: Ctrl+A
+#
+# Verify / repair:  dotfiles tmux check  |  dotfiles tmux update
+set -g default-terminal "tmux-256color"
+set -as terminal-features ',*:RGB'
+
+unbind C-b
+set -g prefix C-a
+bind-key C-a send-prefix
+
+# Splits
+unbind %
+bind | split-window -h
+unbind '"'
+bind - split-window -v
+
+# Reload config: Ctrl+A, r
+unbind r
+bind r source-file ~/.tmux.conf \; display-message 'tmux config reloaded'
+
+# Resize panes
+bind j resize-pane -D 5
+bind k resize-pane -U 5
+bind l resize-pane -R 5
+bind h resize-pane -L 5
+bind -r m resize-pane -Z
+
+set -g mouse on
+# Keep the client attached when a session closes
+set -g detach-on-destroy off
+set-window-option -g mode-keys vi
+bind-key -T copy-mode-vi 'v' send -X begin-selection
+bind-key -T copy-mode-vi 'y' send -X copy-selection
+# Don't exit copy mode when dragging with the mouse
+unbind -T copy-mode-vi MouseDragEnd1Pane
+# Remove delay for exiting insert mode with ESC in Neovim
+set -sg escape-time 10
+
+# Task session picker: Ctrl+A, Shift+T
+# Built-in sesh picker; Ctrl+O toggles preview in current sesh versions.
+bind-key T display-popup -E -w 85% -h 75% 'sesh picker -i'
+
+# Save / restore tmux layout on reboot (not running Claude processes)
+set -g @resurrect-capture-pane-contents 'on'
+set -g @continuum-restore 'on'
+
+# Plugins
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'christoomey/vim-tmux-navigator'
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @plugin 'fabioluciano/tmux-tokyo-night'
+
+# TPM must load last
+run '~/.tmux/plugins/tpm/tpm'

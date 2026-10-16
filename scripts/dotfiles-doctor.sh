@@ -165,7 +165,23 @@ else
     say_warn "brew not installed" "Install from https://brew.sh if on macOS."
 fi
 
-# ---------- 6. opal CLI sanity (only if installed) ----------
+# ---------- 6. tmux workspace ----------
+section "tmux workspace"
+
+TMUX_SETUP="$REPO/scripts/tmux-setup.sh"
+if [ -x "$TMUX_SETUP" ]; then
+    tmux_color="--no-color"; [ -t 1 ] && tmux_color="--color"
+    tmux_out=$("$TMUX_SETUP" check --embedded "$tmux_color" 2>&1)
+    printf '%s\n' "$tmux_out" | grep -v '^COUNTS '
+    read -r _ tp tw tf <<EOF
+$(printf '%s\n' "$tmux_out" | grep '^COUNTS ' | tail -1)
+EOF
+    pass=$((pass + ${tp:-0})); warn=$((warn + ${tw:-0})); fail=$((fail + ${tf:-0}))
+else
+    say_fail "tmux-setup.sh missing or not executable: $TMUX_SETUP"
+fi
+
+# ---------- 7. opal CLI sanity (only if installed) ----------
 section "Opal CLI (if installed)"
 
 if command -v opal >/dev/null 2>&1; then
@@ -184,7 +200,7 @@ else
     say_pass "opal CLI not installed (skipped)"
 fi
 
-# ---------- 7. AWS credentials sanity ----------
+# ---------- 8. AWS credentials sanity ----------
 section "AWS credentials (sanity)"
 
 CREDS="$HOME/.aws/credentials"

@@ -67,9 +67,11 @@ The install script makes the list of installed CLI tools visible to AI so it can
 ├── scripts/
 │   ├── dotfiles-doctor.sh       # Health check (`dotfiles doctor`)
 │   ├── dotfiles-rollback.sh     # Restore ~/.zshrc backup (`dotfiles rollback`)
+│   ├── tmux-setup.sh            # tmux check/update (`dotfiles tmux`)
 │   └── fix-vscode-settings.sh
 ├── dotfiles/
 │   ├── skhdrc.symlink      # skhd hotkey config
+│   ├── tmux.conf.symlink   # tmux config (prefix Ctrl+A, sesh picker, TPM plugins)
 │   ├── yabairc.symlink     # yabai window manager config
 │   └── zsh/zshrc.d/        # Modular zsh snippets sourced by ~/.zshrc
 │       ├── 00-eza-zoxide.zsh
@@ -143,8 +145,11 @@ Brief intro and examples for each tool installed by the script.
 - **mole** — Reverse SSH tunnels.  
   Example: expose a local port or reach a remote host via tunnel.
 
-- **tmux** — Terminal multiplexer (sessions, panes, windows).  
+- **tmux**: Terminal multiplexer (sessions, panes, windows). Prefix is `Ctrl+A`. See [tmux workspace](#tmux-workspace-ghostty--tmux--sesh).  
   Examples: `tmux new -s dev`, `tmux attach -t dev`.
+
+- **sesh**: tmux session picker. `Ctrl+A`, `Shift+T` inside tmux.  
+  Examples: `sesh list -t`, `sesh picker -i`.
 
 - **tree** — Directory tree.  
   Example: `tree -L 2`.
@@ -162,6 +167,51 @@ Brief intro and examples for each tool installed by the script.
 - **Stats** — Menu-bar system monitor (CPU, GPU, memory, disk, network, battery, sensors). Installed as a cask; open from terminal: `open -a Stats`.
 - **iTerm2 or Ghostty** — Your chosen terminal.
 
+## tmux workspace (Ghostty + tmux + sesh)
+
+The idea: one tmux session per **task**, even when a Claude Code or Codex conversation touches several repos. tmux keeps the sessions alive, sesh makes them searchable, and the agent keeps its own conversation history. Repo `CLAUDE.md` files stay in their repos.
+
+The config lives in [`dotfiles/tmux.conf.symlink`](./dotfiles/tmux.conf.symlink) and is symlinked to `~/.tmux.conf`. Plugins are managed by [TPM](https://github.com/tmux-plugins/tpm): vim-tmux-navigator, tmux-resurrect, tmux-continuum, and the Tokyo Night theme.
+
+```bash
+cd ~/code
+tmux new -s crypto-dashboard   # new task
+claude                         # or: codex
+```
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+A`, `Shift+T` | sesh picker to switch tasks (`Ctrl+O` toggles preview) |
+| `Ctrl+A`, `d` | Detach, keep everything running |
+| `Ctrl+A`, `$` | Rename the current session |
+| `Ctrl+A`, `r` | Reload the config |
+| `Ctrl+A`, `\|` / `-` | Split side by side / top and bottom |
+| `Ctrl+A`, `h/j/k/l` | Resize pane |
+| `Ctrl+A`, `m` | Zoom/unzoom pane |
+| `Ctrl+A`, `[` then `v`, `y` | Vi copy mode: select, copy |
+| `Ctrl+A`, `Shift+I` / `Shift+U` | Install / update TPM plugins |
+
+The prefix is `Ctrl+A`, not the default `Ctrl+B`.
+
+Handy commands: `tmux ls`, `tmux attach -t <task>`, `sesh list -t`, `tmux kill-session -t <task>` (this stops any agent running in it).
+
+### Verify or update an existing setup
+
+```bash
+dotfiles tmux check    # read-only: tools, ~/.tmux.conf link, config errors, TPM, plugins
+dotfiles tmux diff     # how a local ~/.tmux.conf differs from the dotfiles one
+dotfiles tmux update   # back up + re-link ~/.tmux.conf, install/update plugins, reload tmux
+```
+
+`update` checks the repo config in a throwaway tmux server first. If it has errors, your current `~/.tmux.conf` is left alone. Any existing file gets copied to `~/.tmux.conf.backup.<ts>` before it's replaced. `install.sh` and `dotfiles update` both run this step, and `dotfiles doctor` includes the check.
+
+### What survives what
+
+- **Lid closed:** processes pause during sleep and resume on wake. Agents make no progress while asleep.
+- **Ghostty window closed:** sessions keep running as long as the tmux server does. Check with `tmux ls`.
+- **Reboot:** resurrect + continuum bring back the session and window layout, but not a live Claude/Codex process. Start the CLI again and resume the conversation (`claude --resume`). Name conversations with `/rename` so they're easy to find; that name is separate from the tmux session name.
+- For important work, keep a short checkpoint note (goal, repos, decisions, next steps). `/compact` is not a durable record.
+
 ## What the install script does
 
 1. Installs packages.
@@ -169,7 +219,7 @@ Brief intro and examples for each tool installed by the script.
    - **Linux (apt/yum):** installs a smaller core set (`zsh curl git eza`) plus zoxide.
 2. Installs Oh My Zsh and Powerlevel10k.
 3. Installs plugins: zsh-autosuggestions, zsh-syntax-highlighting.
-4. Creates symlinks from `dotfiles/*.symlink` to `~/.filename` (e.g. `~/.skhdrc`, `~/.yabairc`).
+4. Creates symlinks from `dotfiles/*.symlink` to `~/.filename` (e.g. `~/.skhdrc`, `~/.yabairc`, `~/.tmux.conf`), then installs TPM and the tmux plugins (`dotfiles tmux update`).
 5. Configures fzf keybindings and delta as the git pager.
 6. Writes a single small **managed block** to `~/.zshrc` that sources every `*.zsh` file under [`dotfiles/zsh/zshrc.d/`](./dotfiles/zsh/zshrc.d/). All shell additions (`eza` alias, `zoxide` init, the `dotfiles` CLI, the `gwtree` function, fzf binding) live there, so future updates flow in via `git pull`.
 7. Creates an empty `~/.zshrc.local` template (only on first install/update) — your never-tracked, never-touched home for work-specific shell config.
@@ -221,8 +271,9 @@ That command (provided by [`dotfiles/zsh/zshrc.d/05-dotfiles-cli.zsh`](./dotfile
 2. Run `brew bundle install --file ~/.dotfiles/Brewfile` so any newly-declared tools (e.g. a new `brew "lazydocker"` line) get installed everywhere.
 3. Refresh the dotfiles-managed block in `~/.zshrc` (one-time migration removes the old inline block; subsequent runs just rewrite the sentinel-fenced block).
 4. `brew update && brew upgrade && brew upgrade --cask` to refresh installed versions.
-5. Update Oh My Zsh, Powerlevel10k, and zsh plugins.
-6. Print the list of `~/.dotfiles` commits applied since your last update, so you know what's new.
+5. Re-link `~/.tmux.conf` if needed, update TPM + tmux plugins, and reload a running tmux server (`dotfiles tmux update`).
+6. Update Oh My Zsh, Powerlevel10k, and zsh plugins.
+7. Print the list of `~/.dotfiles` commits applied since your last update, so you know what's new.
 
 Then run `exec zsh` (or open a new terminal) to reload.
 
@@ -240,6 +291,7 @@ dotfiles doctor     # health-check (PASS/WARN/FAIL): managed block, snippet
 dotfiles rollback   # restore ~/.zshrc from the most recent timestamped backup
                     # (every install/update takes one before mutating)
                     # use --list to inspect, -y to skip confirmation
+dotfiles tmux check # verify the tmux setup; 'update' repairs it, 'diff' compares
 dotfiles --help     # show this list
 ```
 
@@ -280,6 +332,7 @@ If symlinks are wrong, fix manually:
 ```bash
 ln -sf ~/.dotfiles/dotfiles/skhdrc.symlink ~/.skhdrc
 ln -sf ~/.dotfiles/dotfiles/yabairc.symlink ~/.yabairc
+dotfiles tmux update   # tmux: backs up and re-links ~/.tmux.conf
 ln -sf ~/.dotfiles/borders/bordersrc.symlink ~/.config/borders/bordersrc
 ```
 

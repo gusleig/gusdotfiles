@@ -35,6 +35,10 @@ dotfiles() {
       shift
       "$repo/scripts/dotfiles-rollback.sh" "$@"
       ;;
+    tmux)
+      shift
+      "$repo/scripts/tmux-setup.sh" "$@"
+      ;;
     -h|--help|"")
       cat <<'USAGE'
 dotfiles — manage your dotfiles repo.
@@ -51,6 +55,9 @@ Usage:
   dotfiles rollback   Restore ~/.zshrc from the most recent timestamped
                       backup (taken before every install/update).
                       Use '--list' to see backups, '-y' to skip confirmation.
+  dotfiles tmux check   Verify the tmux setup (config link, syntax, TPM, plugins).
+  dotfiles tmux update  Back up + re-link ~/.tmux.conf, install/update plugins.
+  dotfiles tmux diff    Diff a local ~/.tmux.conf against the dotfiles version.
 USAGE
       ;;
     *)

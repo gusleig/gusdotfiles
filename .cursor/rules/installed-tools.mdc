@@ -21,9 +21,10 @@ When suggesting shell commands, prefer these tools—they are installed on this 
 | **delta** | Git diff pager (auto) | Used by git diff / lazygit |
 | **gh** | GitHub CLI | `gh pr list`, `gh repo clone org/repo` |
 | **gwtree** | Git worktree + uv + lazygit (subcommands) | `gwtree my-feature` (folder+branch same), `gwtree my-feature -f` (branch `feature/my-feature`), `gwtree feat sc-123 desc`, `gwtree from main hotfix`, `gwtree --help` |
-| **dotfiles** | Manage the ~/.dotfiles repo | `dotfiles update`, `dotfiles status`, `dotfiles log`, `dotfiles edit`, `dotfiles doctor`, `dotfiles rollback`, `dotfiles --help` |
+| **dotfiles** | Manage the ~/.dotfiles repo | `dotfiles update`, `dotfiles status`, `dotfiles log`, `dotfiles edit`, `dotfiles doctor`, `dotfiles rollback`, `dotfiles tmux check`, `dotfiles tmux update`, `dotfiles --help` |
 | **mole** | SSH tunnels | Port forwarding / reverse tunnels |
-| **tmux** | Sessions/panes | `tmux new -s dev`, `tmux attach` |
+| **tmux** | Sessions/panes (prefix `Ctrl+A`), one session per task | `tmux new -s my-task`, `tmux attach -t my-task` |
+| **sesh** | tmux session picker (`Ctrl+A`, `Shift+T`) | `sesh list -t`, `sesh picker -i` |
 | **tree** | Directory tree | `tree -L 2` |
 | **aws** | AWS/S3 (if installed) | `aws s3 ls`, `aws s3 cp` |
 

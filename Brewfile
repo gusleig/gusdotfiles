@@ -18,6 +18,7 @@ brew "curl"
 brew "git"
 brew "wget"
 brew "tmux"
+brew "sesh"      # tmux session picker (Ctrl+A, Shift+T)
 brew "tree"
 brew "watch"
 
