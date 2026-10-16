@@ -39,7 +39,7 @@ unbind -T copy-mode-vi MouseDragEnd1Pane
 set -sg escape-time 10
 
 # Task session picker: Ctrl+A, Shift+T
-# Built-in sesh picker; Ctrl+O toggles preview in current sesh versions.
+# Lists running sessions and recent zoxide folders.
 bind-key T display-popup -E -w 85% -h 75% 'sesh picker -i'
 
 # Save / restore tmux layout on reboot (not running Claude processes)

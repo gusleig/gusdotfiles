@@ -84,8 +84,13 @@ if [ -f "$ZSHRC" ]; then
     fi
 
     if grep -qE '^# ---- Eza \(better ls\) ----$' "$ZSHRC"; then
-        say_warn "Legacy inline block still present in ~/.zshrc" \
-                 "Run 'dotfiles update' to quarantine it."
+        if grep -qxF '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh' "$ZSHRC"; then
+            say_warn "Legacy inline block still present in ~/.zshrc" \
+                     "Run 'dotfiles update' to quarantine it."
+        else
+            say_warn "Old eza/zoxide lines in ~/.zshrc (no end marker, so no automatic migration)" \
+                     "The managed block covers them. Delete the old eza/zoxide lines by hand."
+        fi
     fi
 else
     say_fail "~/.zshrc does not exist" "Re-run install: cd ~/.dotfiles && ./install.sh"

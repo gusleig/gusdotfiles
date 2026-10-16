@@ -79,6 +79,7 @@ The install script makes the list of installed CLI tools visible to AI so it can
 │       ├── 05-dotfiles-cli.zsh
 │       ├── 10-gwtree.zsh
 │       ├── 20-fzf.zsh
+│       ├── 90-zsh-plugins.zsh  # brew zsh-autosuggestions + syntax-highlighting
 │       └── 99-local.zsh   # sources ~/.zshrc.local (your work-specific config)
 ├── borders/
 │   └── bordersrc.symlink   # yabai borders config
@@ -184,7 +185,7 @@ claude                         # or: codex
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl+A`, `Shift+T` | sesh picker to switch tasks (`Ctrl+O` toggles preview) |
+| `Ctrl+A`, `Shift+T` | sesh picker to switch tasks |
 | `Ctrl+A`, `d` | Detach, keep everything running |
 | `Ctrl+A`, `$` | Rename the current session |
 | `Ctrl+A`, `r` | Reload the config |
@@ -221,13 +222,13 @@ dotfiles tmux update   # back up + re-link ~/.tmux.conf, install/update plugins,
    - **macOS:** runs `brew bundle install` against [`Brewfile`](./Brewfile) (all formulae + casks, including fonts/Alt-tab/Raycast/Stats).
    - **Linux (apt/yum):** installs a smaller core set (`zsh curl git eza`) plus zoxide.
 2. Installs Oh My Zsh and Powerlevel10k.
-3. Installs plugins: zsh-autosuggestions, zsh-syntax-highlighting.
+3. Loads zsh-autosuggestions and zsh-syntax-highlighting (installed by the Brewfile) from [`90-zsh-plugins.zsh`](./dotfiles/zsh/zshrc.d/90-zsh-plugins.zsh).
 4. Creates symlinks from `dotfiles/*.symlink` to `~/.filename` (e.g. `~/.skhdrc`, `~/.yabairc`, `~/.tmux.conf`), then installs TPM and the tmux plugins (`dotfiles tmux update`).
-5. Configures fzf keybindings and delta as the git pager.
+5. Configures delta as the git pager. fzf keybindings (`Ctrl+R`, `Ctrl+T`) load from [`20-fzf.zsh`](./dotfiles/zsh/zshrc.d/20-fzf.zsh) through `fzf --zsh`, with no extra edits to `~/.zshrc`.
 6. Writes a single small **managed block** to `~/.zshrc` that sources every `*.zsh` file under [`dotfiles/zsh/zshrc.d/`](./dotfiles/zsh/zshrc.d/). All shell additions (`eza` alias, `zoxide` init, the `dotfiles` CLI, the `gwtree` function, fzf binding) live there, so future updates flow in via `git pull`.
 7. Creates an empty `~/.zshrc.local` template (only on first install/update) — your never-tracked, never-touched home for work-specific shell config.
 8. **Safely** migrates any legacy inline block from `~/.zshrc` to a quarantine file (`~/.dotfiles-legacy-block.<ts>.zsh`) and validates that the new `~/.zshrc` still starts a shell; if not, auto-rolls back from the timestamped backup taken before the mutation.
-9. On macOS: starts yabai/skhd if present, optionally Sketchybar and AWS CLI.
+9. On macOS: asks before it installs and restarts yabai/skhd. Sketchybar and AWS CLI are also optional prompts.
 
 ## Post-installation
 
@@ -270,10 +271,10 @@ dotfiles update
 
 That command (provided by [`dotfiles/zsh/zshrc.d/05-dotfiles-cli.zsh`](./dotfiles/zsh/zshrc.d/05-dotfiles-cli.zsh)) will:
 
-1. `git pull --ff-only` on `~/.dotfiles` (auto-stashes uncommitted changes — re-apply with `git -C ~/.dotfiles stash pop`).
-2. Run `brew bundle install --file ~/.dotfiles/Brewfile` so any newly-declared tools (e.g. a new `brew "lazydocker"` line) get installed everywhere.
+1. `git pull --ff-only --autostash` on `~/.dotfiles`. Git sets your uncommitted edits aside for the pull and puts them back right after, so your live `*.symlink` configs never revert. If the pull brought new commits, the update restarts with the new `install.sh`, so new steps run right away.
+2. Run `brew update`, then `brew bundle install --file ~/.dotfiles/Brewfile` so any newly-declared tools (e.g. a new `brew "lazydocker"` line) get installed everywhere.
 3. Refresh the dotfiles-managed block in `~/.zshrc` (one-time migration removes the old inline block; subsequent runs just rewrite the sentinel-fenced block).
-4. `brew update && brew upgrade && brew upgrade --cask` to refresh installed versions.
+4. `brew upgrade` to refresh installed formulae and casks.
 5. Re-link `~/.tmux.conf` if needed, update TPM + tmux plugins, and reload a running tmux server (`dotfiles tmux update`).
 6. Update Oh My Zsh, Powerlevel10k, and zsh plugins.
 7. Print the list of `~/.dotfiles` commits applied since your last update, so you know what's new.

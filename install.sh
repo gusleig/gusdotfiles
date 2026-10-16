@@ -23,8 +23,6 @@ ask_yes_no() {
 # Ask user to choose between options (returns 1 or 2; default 1 when non-interactive)
 ask_choice() {
     local prompt="$1"
-    local opt1="$2"
-    local opt2="$3"
     if [ ! -t 0 ]; then
         echo "1"
         return
@@ -65,6 +63,15 @@ remove_legacy_zsh_block() {
     local zshrc="$HOME/.zshrc"
     [ -f "$zshrc" ] || return 0
     if ! grep -qE '^# ---- Eza \(better ls\) ----$' "$zshrc"; then
+        return 0
+    fi
+    # Without the end marker the range would run to end of file and take
+    # unrelated user config with it. Skip and let the user handle it.
+    if ! grep -qxF '[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh' "$zshrc"; then
+        echo "note: found the old '# ---- Eza (better ls) ----' section in $zshrc,"
+        echo "      but not its end line. Skipping the automatic migration."
+        echo "      The managed block already sets up eza and zoxide, so you can"
+        echo "      delete the old eza/zoxide lines from $zshrc by hand."
         return 0
     fi
 
@@ -214,29 +221,37 @@ brew_bundle_install() {
 }
 
 # Update installed software:
-#   1) Pull ~/.dotfiles (with auto-stash if dirty).
-#   2) Re-run Brewfile so new tools land automatically.
-#   3) Re-emit the managed block in ~/.zshrc (and migrate legacy block).
-#   4) Update brew, Oh My Zsh, p10k, plugins.
+#   1) Pull ~/.dotfiles (git stashes and restores local changes itself).
+#      If the pull brought new commits, restart with the new install.sh so
+#      new update steps run now, not on the next update.
+#   2) Re-emit the managed block in ~/.zshrc (and migrate legacy block).
+#   3) brew update, then the Brewfile, then brew upgrade.
+#   4) Update tmux, Oh My Zsh, p10k.
 #   5) Print the new commits since last update so the user sees what changed.
+#
+# Usage: update_software [--after-pull <old_head>]
 update_software() {
-    echo "================================================="
-    echo "Updating ~/.dotfiles repo..."
-    echo "================================================="
     local old_head="" new_head=""
-    local dirty=0
-    if [ -d "$HOME/.dotfiles/.git" ]; then
-        old_head=$(git -C "$HOME/.dotfiles" rev-parse HEAD 2>/dev/null || echo "")
-        if ! git -C "$HOME/.dotfiles" diff --quiet 2>/dev/null \
-            || ! git -C "$HOME/.dotfiles" diff --cached --quiet 2>/dev/null; then
-            dirty=1
-            echo "Stashing local changes in ~/.dotfiles..."
-            git -C "$HOME/.dotfiles" stash push -u \
-                -m "dotfiles auto-stash $(date +%Y%m%d%H%M%S)" || true
-        fi
-        git -C "$HOME/.dotfiles" pull --ff-only \
-            || echo "git pull failed; resolve manually then re-run."
+    if [ "${1:-}" = "--after-pull" ]; then
+        old_head="${2:-}"
         new_head=$(git -C "$HOME/.dotfiles" rev-parse HEAD 2>/dev/null || echo "")
+        echo "Running the updated install.sh..."
+    elif [ -d "$HOME/.dotfiles/.git" ]; then
+        echo "================================================="
+        echo "Updating ~/.dotfiles repo..."
+        echo "================================================="
+        old_head=$(git -C "$HOME/.dotfiles" rev-parse HEAD 2>/dev/null || echo "")
+        # --autostash puts local edits back right after the pull. The
+        # *.symlink configs are live files, so a stash that stays in place
+        # would silently revert them.
+        if ! git -C "$HOME/.dotfiles" pull --ff-only --autostash; then
+            echo "git pull failed; resolve manually then re-run."
+            echo "If git reports a stash conflict, your edits are in 'git -C ~/.dotfiles stash list'."
+        fi
+        new_head=$(git -C "$HOME/.dotfiles" rev-parse HEAD 2>/dev/null || echo "")
+        if [ -n "$old_head" ] && [ -n "$new_head" ] && [ "$old_head" != "$new_head" ]; then
+            exec bash "$HOME/.dotfiles/install.sh" update --after-pull "$old_head"
+        fi
     else
         echo "~/.dotfiles is not a git repo; skipping pull."
     fi
@@ -263,11 +278,14 @@ update_software() {
     echo "================================================="
     echo "Installing/updating Homebrew packages via Brewfile..."
     echo "================================================="
+    if command_exists brew; then
+        echo "Refreshing Homebrew package lists..."
+        brew update || echo "warning: 'brew update' failed; continuing with cached lists."
+    fi
     brew_bundle_install
     if command_exists brew; then
-        echo "Updating Homebrew formulae and casks..."
-        brew update && brew upgrade
-        brew upgrade --cask
+        echo "Upgrading Homebrew formulae and casks..."
+        brew upgrade
     fi
 
     echo ""
@@ -281,6 +299,8 @@ update_software() {
     echo "================================================="
     echo "Updating Oh My Zsh + plugins..."
     echo "================================================="
+    # zsh-autosuggestions / zsh-syntax-highlighting now come from brew.
+    # The git pulls below only refresh clones left by older installs.
     if [ -d "$HOME/.oh-my-zsh" ]; then
         echo "Updating Oh My Zsh..."
         (cd "$HOME/.oh-my-zsh" && git pull)
@@ -302,12 +322,6 @@ update_software() {
         echo "Changes in ~/.dotfiles since last update:"
         echo "================================================="
         git -C "$HOME/.dotfiles" log --oneline "$old_head..$new_head"
-    fi
-
-    if [ "$dirty" = "1" ]; then
-        echo ""
-        echo "Note: your local ~/.dotfiles changes are in 'git stash'."
-        echo "      Re-apply with: git -C ~/.dotfiles stash pop"
     fi
 
     echo ""
@@ -353,8 +367,9 @@ create_symlinks() {
             
             # Backup existing file if it's not a symlink
             if [ -f "$target" ] && [ ! -L "$target" ]; then
-                echo "Backing up existing $target to $target.backup"
-                mv "$target" "$target.backup"
+                local backup="$target.backup.$(date +%Y%m%d%H%M%S)"
+                echo "Backing up existing $target to $backup"
+                mv "$target" "$backup"
             fi
             
             # Create symlink
@@ -397,18 +412,6 @@ manage_services() {
     fi
 }
 
-# Linux fallback list (apt/yum only). On macOS we use the Brewfile.
-package_to_install="
-    bash
-    tmux
-    tree
-    wget
-    watch
-    zsh
-    curl
-    git
-"
-
 # Function to install packages based on the package manager
 install_packages() {
     if command_exists apt-get; then
@@ -416,14 +419,14 @@ install_packages() {
         sudo apt-get install -y zsh curl git
         # Install eza for debian/ubuntu
         sudo mkdir -p /etc/apt/keyrings
-        wget -qO- https://raw.githubusercontent.com/TheLocehiliosan/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
+        wget -qO- https://raw.githubusercontent.com/eza-community/eza/main/deb.asc | sudo gpg --dearmor -o /etc/apt/keyrings/gierens.gpg
         echo "deb [signed-by=/etc/apt/keyrings/gierens.gpg] http://deb.gierens.de stable main" | sudo tee /etc/apt/sources.list.d/gierens.list
         sudo apt-get update
         sudo apt-get install -y eza
         # Install zoxide
         curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash
     elif command_exists yum; then
-        sudo yum update
+        sudo yum update -y
         sudo yum install -y zsh curl git
         # For eza and zoxide on RHEL/CentOS, recommend manual installation
         echo "Please install eza and zoxide manually for your RHEL/CentOS system"
@@ -434,7 +437,7 @@ install_packages() {
 
         # Terminal choice is interactive, so handle it separately from Brewfile.
         local term_choice
-        term_choice=$(ask_choice "Preferred terminal? 1) iTerm2  2) Ghostty" "iTerm2" "Ghostty")
+        term_choice=$(ask_choice "Preferred terminal? 1) iTerm2  2) Ghostty")
         if [ "$term_choice" = "2" ]; then
             echo "Installing Ghostty..."
             brew install --cask ghostty
@@ -510,8 +513,9 @@ setup_powerlevel10k() {
 
 # Ensure script is run from the correct directory (skip for "update" command)
 if [ "${1:-}" = "update" ]; then
-    update_software
-    exit 0
+    shift
+    update_software "$@"
+    exit $?
 fi
 
 if [ ! -d "$HOME/.dotfiles" ]; then
@@ -525,36 +529,37 @@ install_packages
 
 # Check if Oh My Zsh is already installed
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
+    _had_zshrc=0
+    [ -f "$HOME/.zshrc" ] && _had_zshrc=1
     echo "Installing Oh My Zsh..."
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    if [ "$_had_zshrc" = 1 ]; then
+        echo ""
+        echo "NOTE: Oh My Zsh replaced your ~/.zshrc with its template."
+        echo "      Your old file is now one of these:"
+        ls -1d "$HOME"/.zshrc.pre-oh-my-zsh* 2>/dev/null | sed 's/^/        /'
+        echo "      Copy any custom lines from it into ~/.zshrc.local."
+        echo ""
+    fi
+    unset _had_zshrc
 else
     echo "Oh My Zsh is already installed"
 fi
 
-# Backup existing .zshrc if it exists
+# Back up ~/.zshrc before any install step edits it. This is also the
+# rollback point if the final shell check fails. 'dotfiles rollback'
+# finds it by its .before-install.<ts> name.
+_pre_install_backup="$HOME/.zshrc.before-install.$(date +%Y%m%d%H%M%S)"
 if [ -f "$HOME/.zshrc" ]; then
-    echo "Backing up existing .zshrc..."
-    cp "$HOME/.zshrc" "$HOME/.zshrc.backup"
+    echo "Backing up ~/.zshrc -> $_pre_install_backup"
+    cp "$HOME/.zshrc" "$_pre_install_backup"
 fi
 
 echo "Installing powerlevel10k..."
 setup_powerlevel10k
 
-# Install zsh-autosuggestions
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" ]; then
-    echo "Installing zsh-autosuggestions..."
-    git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-else
-    echo "zsh-autosuggestions is already installed"
-fi
-
-# Install zsh-syntax-highlighting
-if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" ]; then
-    echo "Installing zsh-syntax-highlighting..."
-    git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
-else
-    echo "zsh-syntax-highlighting is already installed"
-fi
+# zsh-autosuggestions and zsh-syntax-highlighting come from the Brewfile
+# and load from dotfiles/zsh/zshrc.d/90-zsh-plugins.zsh.
 
 # Create symlinks for dotfiles
 create_symlinks
@@ -562,19 +567,18 @@ create_symlinks
 # tmux: config link (done above), TPM, plugins
 setup_tmux
 
-# Start services after symlinks are created
-manage_services
-
-# Update plugins in .zshrc
-sed_in_place 's/plugins=(git)/plugins=(git zsh-autosuggestions zsh-syntax-highlighting)/' "$HOME/.zshrc"
+# Optional: yabai + skhd (macOS window manager + hotkeys)
+if command_exists brew && [[ "$OSTYPE" == "darwin"* ]]; then
+    if [ "$(ask_yes_no "Install and (re)start yabai + skhd?")" = "y" ]; then
+        manage_services
+    fi
+fi
 
 # Install/refresh the dotfiles-managed block in ~/.zshrc.
 # The block is just a sourcing loop over dotfiles/zsh/zshrc.d/*.zsh, so future
 # changes to gwtree, aliases, the `dotfiles` CLI, etc. arrive via 'git pull'
 # (i.e. 'dotfiles update') with no further edits to ~/.zshrc.
 echo "Installing dotfiles managed block in ~/.zshrc..."
-_pre_install_backup="$HOME/.zshrc.before-install.$(date +%Y%m%d%H%M%S)"
-[ -f "$HOME/.zshrc" ] && cp "$HOME/.zshrc" "$_pre_install_backup"
 remove_legacy_zsh_block
 write_managed_block
 ensure_local_zshrc
@@ -584,25 +588,32 @@ verify_or_rollback_zshrc "$_pre_install_backup" || {
 }
 unset _pre_install_backup
 
-# Configure fzf keybindings (zsh) and git delta, when using Homebrew
+# fzf keybindings come from dotfiles/zsh/zshrc.d/20-fzf.zsh (no installer,
+# no extra ~/.zshrc edits). Configure git delta when using Homebrew.
 if command_exists brew; then
-    if [ -x "$(brew --prefix)/opt/fzf/install" ]; then
-        echo "Configuring fzf keybindings..."
-        "$(brew --prefix)/opt/fzf/install" --all --no-bash --no-fish 2>/dev/null || true
-    fi
     if command_exists delta && command_exists git; then
-        echo "Configuring delta as git pager..."
-        git config --global core.pager delta
-        git config --global interactive.diffFilter "delta --color-only"
+        # Only fill in unset values, so a pager you chose yourself stays.
+        if ! git config --global --get core.pager >/dev/null; then
+            echo "Configuring delta as git pager..."
+            git config --global core.pager delta
+        fi
+        if ! git config --global --get interactive.diffFilter >/dev/null; then
+            git config --global interactive.diffFilter "delta --color-only"
+        fi
     fi
 fi
 
 # macOS apps (fonts, alt-tab, raycast, stats) are now declared in the
 # Brewfile and installed by brew_bundle_install above. Nothing to do here.
 
-# Install recommended font (MesloLGS NF) - works on macOS and Linux
-echo "Installing recommended Meslo Nerd Font..."
-mkdir -p "$HOME/.local/share/fonts"
+# Install recommended font (MesloLGS NF). macOS only reads ~/Library/Fonts.
+# Files that already exist are skipped, so re-runs download nothing.
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    FONT_DIR="$HOME/Library/Fonts"
+else
+    FONT_DIR="$HOME/.local/share/fonts"
+fi
+mkdir -p "$FONT_DIR"
 FONT_URLS=(
     "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
     "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf"
@@ -610,13 +621,20 @@ FONT_URLS=(
     "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
 )
 
+fonts_added=0
 for URL in "${FONT_URLS[@]}"; do
-    curl -fL "$URL" -o "$HOME/.local/share/fonts/$(basename "$URL")"
+    font_file="$FONT_DIR/$(basename "$URL" | sed 's/%20/ /g')"
+    [ -f "$font_file" ] && continue
+    echo "Downloading $(basename "$font_file")..."
+    curl -fsSL "$URL" -o "$font_file" && fonts_added=1
 done
+if [ "$fonts_added" = 0 ]; then
+    echo "MesloLGS NF already installed in $FONT_DIR"
+fi
 
 # Refresh font cache (Linux, and macOS if fontconfig is installed)
-if command_exists fc-cache; then
-    fc-cache -f -v
+if [ "$fonts_added" = 1 ] && command_exists fc-cache; then
+    fc-cache -f
 fi
 
 # Borders config (used by yabai/borders)
@@ -702,8 +720,9 @@ echo "  dotfiles tmux update  - re-link ~/.tmux.conf, install/update plugins"
 echo ""
 echo "tmux (prefix is Ctrl+A):"
 echo "  tmux new -s <task>    - one session per task (Claude/Codex inside)"
-echo "  Ctrl+A, Shift+T       - sesh picker to switch tasks (Ctrl+O preview)"
-echo "  Ctrl+A, d             - detach; 'tmux attach -t <task>' to come back"
+echo "  Ctrl+A, Shift+T       - sesh picker to switch tasks"
+echo "  Ctrl+A, d             - detach; 'tmux attach' to come back"
+echo "  Step-by-step guide:     ~/.dotfiles/docs/tmux-claude-workflow.md"
 echo ""
 echo "Work-specific shell config:"
 echo "  ~/.zshrc.local        - your private, never-touched shell config."
